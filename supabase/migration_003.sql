@@ -1,3 +1,4 @@
+delete from ej_clients where code in ('9990','9991','9992');
 -- =====================================================================
 --  Migración 003 · Registro facial obligatorio (una sola vez) multi-ángulo
 --                  y verificación 1:1 al entrar con código
@@ -32,15 +33,16 @@ begin
   -- Coherencia: las frontales deben ser muy parecidas entre sí y todas las demás
   -- cercanas al promedio frontal (misma persona desde otro ángulo).
   select max(a.v <-> b.v) into spread from _s a, _s b where a.i < b.i and a.pose = 'center' and b.pose = 'center';
-  if spread > 0.42 then raise exception 'Las capturas frontales no son consistentes. Repite con buena luz.'; end if;
+  if spread > 0.50 then raise exception 'Las capturas frontales no son consistentes. Repite con buena luz.'; end if;
   select max(s.v <-> c.m) into far from _s s, (select avg(v) m from _s where pose = 'center') c;
   if far > 0.72 then raise exception 'Alguna captura no coincide con tu rostro. Repite el registro.'; end if;
 
   -- El mismo rostro no puede existir con otro código
-  select f.client_code into other
-  from ej_faces f, (select v from _s where pose = 'center') q
-  where f.client_code <> p_code
-  group by f.client_code having avg(f.embedding <-> q.v) < 0.42 limit 1;
+  select client_code into other from (
+    select f.client_code, q.i, min(f.embedding <-> q.v) d
+    from ej_faces f, (select i, v from _s where pose = 'center') q
+    where f.client_code <> p_code group by f.client_code, q.i
+  ) x group by client_code having avg(d) < 0.45 limit 1;
   if other is not null then raise exception 'Este rostro ya está registrado con otro número de cliente'; end if;
 
   insert into ej_clients(code) values (p_code) on conflict do nothing;
