@@ -277,9 +277,9 @@ begin
                max(w.load_kg) as max_load, round(max(w.est_1rm)::numeric,1) as best_1rm
         from ej_sets w where w.client_code = p_code group by 1,2) t), '[]'::json),
     'punch_types', coalesce((select json_agg(t order by t.n desc) from (
-        select k as punch, sum(v::int) as n
+        select k as punch, sum(case when v ~ '^[0-9]+$' then v::int else 0 end) as n
         from ej_sets w, jsonb_each_text(coalesce(w.punches,'{}'::jsonb)) as p(k, v)
-        where w.client_code = p_code and k not in ('stance') group by k) t), '[]'::json),
+        where w.client_code = p_code and v ~ '^[0-9]+$' group by k) t), '[]'::json),
     'sets', coalesce((select json_agg(t) from (
         select w.id, w.created_at, w.exercise_id, w.set_number, w.reps, w.target_reps, w.form_score, w.fatigue_pct,
                w.peak_speed, w.incline_deg, w.kcal, w.load_kg, w.est_1rm, w.accuracy, w.avg_punch_speed, w.guard_pct
