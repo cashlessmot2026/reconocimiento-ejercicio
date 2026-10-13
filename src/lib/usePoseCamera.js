@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { defaultModel, loadPoseLandmarker } from './pose'
 import { createLandmarkFilter } from './filters'
+import { cameraError, openCamera } from './face'
 
 /**
  * Cámara + detector de pose con el bucle más rápido disponible:
@@ -34,14 +35,11 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
   const startCamera = useCallback(async (mode) => {
     streamRef.current?.getTracks().forEach((t) => t.stop())
     const portrait = window.innerHeight > window.innerWidth
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: mode,
-        width: { ideal: portrait ? 540 : 960 },
-        height: { ideal: portrait ? 960 : 540 },
-        frameRate: { ideal: 60, min: 24 },
-      },
+    const stream = await openCamera({
+      facingMode: mode,
+      width: { ideal: portrait ? 540 : 960 },
+      height: { ideal: portrait ? 960 : 540 },
+      frameRate: { ideal: 60, min: 24 },
     })
     streamRef.current = stream
     const v = videoRef.current
@@ -61,7 +59,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
         setStatus('ready')
       } catch (e) {
         if (!alive) return
-        setError(e.name === 'NotAllowedError' ? 'Permiso de cámara denegado. Actívalo en la configuración del navegador.' : e.message)
+        setError(cameraError(e))
         setStatus('error')
       }
     })()

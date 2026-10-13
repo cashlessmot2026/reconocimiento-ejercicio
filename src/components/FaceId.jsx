@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
-import { analyzeFace, descDistance, loadFace } from '../lib/face'
+import { analyzeFace, cameraError, descDistance, loadFace, openCamera } from '../lib/face'
 import { GlowButton } from './ui'
 
 /*
@@ -70,7 +70,7 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
         setMsg('Cargando modelos de reconocimiento…')
         const [, stream] = await Promise.all([
           loadFace(),
-          navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } } }),
+          openCamera({ facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }),
         ])
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
         streamRef.current = stream
@@ -81,7 +81,7 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
         else await runMatch()
       } catch (e) {
         if (cancelled || e.message === 'cancel') return
-        setError(e.name === 'NotAllowedError' ? 'Permiso de cámara denegado. Actívalo para continuar.' : e.message)
+        setError(cameraError(e))
         setPhase('error')
       }
     })()

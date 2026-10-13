@@ -89,3 +89,18 @@ function cropStats(video, box) {
   m /= n
   return { light: sum / (w * h), sharp: m2 / n - m * m }
 }
+
+/** Abre la cámara; si falla con restricciones, reintenta con las mínimas. */
+export async function openCamera(video) {
+  try { return await navigator.mediaDevices.getUserMedia({ audio: false, video }) } catch (e) {
+    if (e.name === 'NotAllowedError') throw e
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: video.facingMode || 'user' } })
+  }
+}
+
+export function cameraError(e) {
+  if (e?.name === 'NotAllowedError') return 'Permiso de cámara denegado. Actívalo en la configuración del navegador.'
+  if (e?.name === 'NotReadableError') return 'La cámara está siendo usada por otra aplicación o pestaña. Ciérrala y pulsa Reintentar.'
+  if (e?.name === 'NotFoundError' || e?.name === 'OverconstrainedError') return 'No se encontró una cámara disponible.'
+  return e?.message || 'Error de cámara'
+}
