@@ -5,6 +5,7 @@ import { loadPoseLandmarker } from './lib/pose'
 import { GlowButton, Toast } from './components/ui'
 import Home from './components/Home'
 import PinModal from './components/PinModal'
+import FaceId from './components/FaceId'
 
 const Session = lazy(() => import('./components/Session'))
 const Admin = lazy(() => import('./components/Admin'))
@@ -18,6 +19,7 @@ export default function App() {
   const [pinOpen, setPinOpen] = useState(false)
   const [adminPin, setAdminPin] = useState(null)
   const [toast, setToast] = useState(null)
+  const [gate, setGate] = useState(null) // { mode: 'enroll' | 'verify', client }
   const taps = useRef([])
 
   const notify = useCallback((m) => {
@@ -47,6 +49,22 @@ export default function App() {
     setClient(c)
     return c
   }, [])
+
+  // Entrada: por rostro → acceso directo. Por código → si es la primera vez, registro facial
+  // obligatorio (una sola vez); si ya tiene rostro, verificación 1:1 contra ese código.
+  const login = useCallback(async (code, via) => {
+    const c = await api.enterClient(code)
+    if (via === 'face') { setClient(c); return }
+    setClient(null)
+    setGate({ mode: c.face_samples > 0 ? 'verify' : 'enroll', client: c })
+  }, [])
+
+  const passGate = useCallback(async (msg) => {
+    const c = await api.enterClient(gate.client.code)
+    setGate(null)
+    setClient(c)
+    if (msg) notify(msg)
+  }, [gate, notify])
 
   // Acceso oculto: 5 toques rápidos sobre el logo
   const onBrandTap = () => {
@@ -109,6 +127,7 @@ export default function App() {
               boot={boot}
               client={client}
               onEnter={refreshClient}
+              onLogin={login}
               onLogout={() => setClient(null)}
               onStart={(p) => { setPlan(p); setView('workout') }}
               notify={notify}
@@ -135,6 +154,17 @@ export default function App() {
         )}
       </AnimatePresence>
       </Suspense>
+
+      <FaceId
+        open={!!gate}
+        mode={gate?.mode}
+        code={gate?.client.code}
+        mandatory
+        consentText={boot.face?.consent}
+        onClose={() => setGate(null)}
+        onEnrolled={(r) => passGate(`✓ Rostro registrado desde ${r.angles} ángulos · ${r.samples} muestras`)}
+        onVerified={(r) => passGate(r.override ? 'Acceso autorizado por el coach' : `✓ Identidad verificada · ${r.confidence}%`)}
+      />
 
       <PinModal
         open={pinOpen}

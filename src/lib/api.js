@@ -54,7 +54,8 @@ export const api = {
     }),
   setWeight: (code, kg) => rpc('ej_client_set_weight', { p_code: code, p_kg: kg }),
   faceIdentify: (descs) => rpc('ej_face_identify', { p_descs: descs }),
-  faceEnroll: (code, descs) => rpc('ej_face_enroll', { p_code: code, p_descs: descs, p_replace: true }),
+  faceEnroll: (code, samples) => rpc('ej_face_enroll', { p_code: code, p_samples: samples }),
+  faceVerify: (code, descs) => rpc('ej_face_verify', { p_code: code, p_descs: descs }),
   removeRoutine: (code, id) => rpc('ej_client_remove_routine', { p_code: code, p_id: id }),
   saveSet: async (row) => {
     const { error } = await db().from('ej_sets').insert(row)

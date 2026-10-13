@@ -36,19 +36,21 @@ export async function analyzeFace(video) {
   const nose = pts[30]
   const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y) || 1
   const mid = { x: (eyeL.x + eyeR.x) / 2, y: (eyeL.y + eyeR.y) / 2 }
-  const yaw = (nose.x - mid.x) / eyeDist                          // ≈0 de frente
+  const yaw = (nose.x - mid.x) / eyeDist                          // ≈0 de frente; >0 = gira a su izquierda
+  const pitchRaw = (nose.y - mid.y) / eyeDist                     // menor = mira arriba (se compara con su línea base)
   const roll = (Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180) / Math.PI
   const ear = (eyeAR(pts.slice(36, 42)) + eyeAR(pts.slice(42, 48))) / 2
   const sizeRatio = box.width / video.videoWidth
-  const light = luminance(video, box)
+  const { light, sharp } = cropStats(video, box)
   const q = {
-    score, yaw, roll, ear, sizeRatio, light,
+    score, yaw, pitchRaw, roll, ear, sizeRatio, light, sharp,
     okSize: sizeRatio >= 0.16,
     okLight: light >= 55 && light <= 215,
     okScore: score >= 0.8,
+    okSharp: sharp >= 25,
     frontal: Math.abs(yaw) < 0.12 && Math.abs(roll) < 12,
   }
-  q.good = q.okSize && q.okLight && q.okScore
+  q.good = q.okSize && q.okLight && q.okScore && q.okSharp
   return { box, score, landmarks: pts, descriptor: Array.from(r.descriptor), quality: q }
 }
 
@@ -62,14 +64,28 @@ const avg = (ps) => ({ x: ps.reduce((a, p) => a + p.x, 0) / ps.length, y: ps.red
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
 const eyeAR = (e) => (dist(e[1], e[5]) + dist(e[2], e[4])) / (2 * dist(e[0], e[3]) || 1)
 
-function luminance(video, box) {
-  if (!lumCanvas) return 128
-  const w = 32, h = 32
+/** Brillo medio y nitidez (varianza del laplaciano) del recorte del rostro. */
+function cropStats(video, box) {
+  if (!lumCanvas) return { light: 128, sharp: 100 }
+  const w = 64, h = 64
   lumCanvas.width = w; lumCanvas.height = h
   const c = lumCanvas.getContext('2d', { willReadFrequently: true })
   c.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, w, h)
   const d = c.getImageData(0, 0, w, h).data
-  let s = 0
-  for (let i = 0; i < d.length; i += 4) s += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-  return s / (w * h)
+  const g = new Float32Array(w * h)
+  let sum = 0
+  for (let i = 0; i < w * h; i++) {
+    g[i] = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]
+    sum += g[i]
+  }
+  let m = 0, m2 = 0, n = 0
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const k = y * w + x
+      const lap = g[k - 1] + g[k + 1] + g[k - w] + g[k + w] - 4 * g[k]
+      m += lap; m2 += lap * lap; n++
+    }
+  }
+  m /= n
+  return { light: sum / (w * h), sharp: m2 / n - m * m }
 }

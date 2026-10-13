@@ -179,7 +179,7 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
           <GlowButton variant="sm ghost" onClick={async () => { try { await api.adminSetWeight(pin, code, kg ? Number(kg) : null); notify('Peso guardado'); reload() } catch (e) { notify(e.message) } }}>Guardar peso</GlowButton>
           <span className="chip" style={{ marginLeft: 'auto' }}>🙂 Rostro: {detail.client?.face_samples ? `${detail.client.face_samples} muestras` : 'no registrado'}</span>
           {detail.client?.face_samples > 0 && (
-            <GlowButton variant="sm hot ghost" onClick={async () => { try { await api.adminFaceDelete(pin, code); notify('Datos faciales eliminados'); reload() } catch (e) { notify(e.message) } }}>Borrar rostro</GlowButton>
+            <GlowButton variant="sm hot ghost" onClick={async () => { try { await api.adminFaceDelete(pin, code); notify('Rostro restablecido: el cliente deberá registrarlo de nuevo'); reload() } catch (e) { notify(e.message) } }}>Restablecer rostro</GlowButton>
           )}
         </div>
       </div>

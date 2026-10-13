@@ -10,7 +10,7 @@ const toItem = (ex, r) => ({
   load_kg: Number(r.load_kg) || 0, stance: r.stance || 'orthodox', routine_id: r.id || null,
 })
 
-export default function Home({ boot, client, onEnter, onLogout, onStart, notify }) {
+export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart, notify }) {
   const { copy, exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [cat, setCat] = useState('Todos')
@@ -60,7 +60,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
         </motion.div>
 
         <motion.div className="card code-box" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogout={onLogout} notify={notify} face={boot.face} />
+          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogin={onLogin} onLogout={onLogout} notify={notify} />
         </motion.div>
       </section>
 
@@ -176,7 +176,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
   )
 }
 
-function CodeGate({ copy, client, onEnter, onLogout, notify, face }) {
+function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [busy, setBusy] = useState(false)
   const [faceMode, setFaceMode] = useState(null)
@@ -185,7 +185,7 @@ function CodeGate({ copy, client, onEnter, onLogout, notify, face }) {
 
   const submit = async (code) => {
     setBusy(true)
-    try { await onEnter(code) } catch (e) { notify(e.message) } finally { setBusy(false) }
+    try { await onLogin(code, 'code') } catch (e) { notify(e.message) } finally { setBusy(false); setDigits(['', '', '', '']) }
   }
 
   const setAt = (i, v) => {
@@ -228,13 +228,11 @@ function CodeGate({ copy, client, onEnter, onLogout, notify, face }) {
             try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
           }}>Guardar</GlowButton>
         </div>
-        <GlowButton variant={client.face_samples ? 'ghost ok' : 'ghost'} onClick={() => setFaceMode('enroll')}>
-          {client.face_samples ? `🙂 Rostro registrado (${client.face_samples}) · Actualizar` : '🙂 Registrar mi rostro para entrar sin código'}
-        </GlowButton>
+        <span className="chip" style={{ alignSelf: 'flex-start', borderColor: 'rgba(52,211,153,.5)' }}>
+          <span className="dot" style={{ background: 'var(--ok)', boxShadow: '0 0 8px var(--ok)' }} />
+          Identidad verificada · rostro registrado ({client.face_samples} muestras)
+        </span>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Todo lo que entrenes se registrará en este código.</p>
-        <FaceId open={faceMode === 'enroll'} mode="enroll" code={client.code} consentText={face?.consent}
-          onClose={() => setFaceMode(null)}
-          onEnrolled={async (r) => { setFaceMode(null); await onEnter(client.code); notify(`Rostro registrado · ${r.samples} muestras`) }} />
       </>
     )
   }
@@ -268,7 +266,10 @@ function CodeGate({ copy, client, onEnter, onLogout, notify, face }) {
       <div className="or-sep"><span>o</span></div>
       <GlowButton variant="ghost" onClick={() => setFaceMode('identify')}>🙂 Entrar con reconocimiento facial</GlowButton>
       <FaceId open={faceMode === 'identify'} mode="identify" onClose={() => setFaceMode(null)}
-        onIdentified={async (r) => { setFaceMode(null); await submit(r.code); notify(`¡Hola! Cliente ${r.code} · confianza ${r.confidence}%`) }} />
+        onIdentified={async (r) => {
+          setFaceMode(null)
+          try { await onLogin(r.code, 'face'); notify(`¡Hola! Cliente ${r.code} · confianza ${r.confidence}%`) } catch (e) { notify(e.message) }
+        }} />
     </>
   )
 }
