@@ -6,7 +6,7 @@ import { GlowButton, Toast } from './components/ui'
 import Home from './components/Home'
 import PinModal from './components/PinModal'
 
-const Workout = lazy(() => import('./components/Workout'))
+const Session = lazy(() => import('./components/Session'))
 const Admin = lazy(() => import('./components/Admin'))
 
 export default function App() {
@@ -124,7 +124,7 @@ export default function App() {
 
       <AnimatePresence>
         {view === 'workout' && plan && client && (
-          <Workout
+          <Session
             key="workout"
             boot={boot}
             client={client}

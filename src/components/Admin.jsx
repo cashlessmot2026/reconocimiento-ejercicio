@@ -8,6 +8,8 @@ import { api } from '../lib/api'
 import { GlowButton, Stepper, fmtDate } from './ui'
 import BodyMap from './BodyMap'
 
+const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
+
 const AX = { stroke: '#8b97b5', fontSize: 11, tickLine: false, axisLine: false }
 const TT = { contentStyle: { background: '#0f1528', border: '1px solid rgba(148,163,184,.2)', borderRadius: 10 }, labelStyle: { color: '#e8eefc' } }
 
@@ -151,7 +153,18 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
   const stackData = Object.values(stack).sort((a, b) => a.week.localeCompare(b.week))
 
   const [name, setName] = useState(detail.client?.name || '')
-  useEffect(() => setName(detail.client?.name || ''), [detail])
+  const [kg, setKg] = useState('')
+  useEffect(() => { setName(detail.client?.name || ''); setKg(detail.client?.body_weight_kg ?? '') }, [detail])
+
+  const W = weekly
+  const hasStrength = W.some((w) => Number(w.volume_kg) > 0)
+  const hasBoxing = W.some((w) => Number(w.punches) > 0)
+  const punchData = (detail.punch_types || []).filter((p) => PUNCH_COLOR[p.punch]).map((p) => ({ ...p, name: punchName(p.punch), color: PUNCH_COLOR[p.punch] }))
+  const totalPunches = W.reduce((a, w) => a + Number(w.punches || 0), 0)
+  const maxLift = Math.max(0, ...W.map((w) => Number(w.max_load || 0)))
+  const best1rm = Math.max(0, ...W.map((w) => Number(w.best_1rm || 0)))
+  const accW = W.filter((w) => w.accuracy != null)
+  const avgAcc = accW.length ? (accW.reduce((a, w) => a + Number(w.accuracy), 0) / accW.length).toFixed(0) : null
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -160,6 +173,15 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
         <input className="text-input" style={{ maxWidth: 260 }} placeholder="Nombre del cliente" value={name} onChange={(e) => setName(e.target.value)} />
         <GlowButton variant="sm" onClick={async () => { try { await api.adminRename(pin, code, name); notify('Nombre guardado'); reload() } catch (e) { notify(e.message) } }}>Guardar</GlowButton>
         <span className="muted" style={{ marginLeft: 'auto', fontSize: 13 }}>{detail.client ? `Alta: ${fmtDate(detail.client.created_at)}` : 'Cliente nuevo'}</span>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexBasis: '100%', flexWrap: 'wrap' }}>
+          <span className="muted" style={{ fontSize: 13 }}>Peso corporal</span>
+          <input className="text-input mono" style={{ maxWidth: 100 }} inputMode="decimal" value={kg} onChange={(e) => setKg(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="kg" />
+          <GlowButton variant="sm ghost" onClick={async () => { try { await api.adminSetWeight(pin, code, kg ? Number(kg) : null); notify('Peso guardado'); reload() } catch (e) { notify(e.message) } }}>Guardar peso</GlowButton>
+          <span className="chip" style={{ marginLeft: 'auto' }}>🙂 Rostro: {detail.client?.face_samples ? `${detail.client.face_samples} muestras` : 'no registrado'}</span>
+          {detail.client?.face_samples > 0 && (
+            <GlowButton variant="sm hot ghost" onClick={async () => { try { await api.adminFaceDelete(pin, code); notify('Datos faciales eliminados'); reload() } catch (e) { notify(e.message) } }}>Borrar rostro</GlowButton>
+          )}
+        </div>
       </div>
 
       <div className="kpis">
@@ -167,6 +189,10 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
         <Kpi label="Reps totales" value={totalReps} />
         <Kpi label="Series totales" value={totalSets} />
         <Kpi label="Técnica media" value={avgForm} />
+        {hasStrength && <Kpi label="Lastre máximo" value={`${maxLift} kg`} />}
+        {hasStrength && <Kpi label="Mejor 1RM estimado" value={`${best1rm} kg`} />}
+        {hasBoxing && <Kpi label="Golpes totales" value={totalPunches} />}
+        {hasBoxing && <Kpi label="Precisión boxeo" value={avgAcc != null ? `${avgAcc}%` : '—'} />}
       </div>
 
       <div className="charts">
@@ -223,6 +249,53 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
             </ResponsiveContainer>
           </div>
         </div>
+        {hasStrength && (
+          <div className="card chart-card">
+            <h3>Fuerza con carga · volumen, lastre y 1RM estimado</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={W}>
+                <CartesianGrid stroke="rgba(148,163,184,.1)" vertical={false} />
+                <XAxis dataKey="wk" {...AX} /><YAxis yAxisId="l" {...AX} /><YAxis yAxisId="r" orientation="right" {...AX} />
+                <Tooltip {...TT} /><Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar yAxisId="l" dataKey="volume_kg" name="Volumen (kg)" fill="#8b5cf6" radius={[6, 6, 0, 0]} />
+                <Line yAxisId="r" dataKey="max_load" name="Lastre máx (kg)" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="r" dataKey="best_1rm" name="1RM est. (kg)" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="r" dataKey="power_w" name="Potencia (W)" stroke="#fb7185" strokeWidth={2} strokeDasharray="4 3" dot={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {hasBoxing && (
+          <div className="card chart-card">
+            <h3>Boxeo · golpes, precisión y velocidad</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <ComposedChart data={W}>
+                <CartesianGrid stroke="rgba(148,163,184,.1)" vertical={false} />
+                <XAxis dataKey="wk" {...AX} /><YAxis yAxisId="l" {...AX} /><YAxis yAxisId="r" orientation="right" {...AX} />
+                <Tooltip {...TT} /><Legend wrapperStyle={{ fontSize: 12 }} />
+                <Bar yAxisId="l" dataKey="punches" name="Golpes" fill="#fb7185" radius={[6, 6, 0, 0]} />
+                <Line yAxisId="r" dataKey="accuracy" name="Precisión %" stroke="#34d399" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="r" dataKey="guard" name="Guardia %" stroke="#fbbf24" strokeWidth={2} dot={{ r: 3 }} />
+                <Line yAxisId="r" dataKey="punch_speed" name="Vel. media (m/s)" stroke="#22d3ee" strokeWidth={2} dot={{ r: 3 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+        {punchData.length > 0 && (
+          <div className="card chart-card">
+            <h3>Distribución de golpes</h3>
+            <ResponsiveContainer width="100%" height={240}>
+              <BarChart data={punchData}>
+                <CartesianGrid stroke="rgba(148,163,184,.1)" vertical={false} />
+                <XAxis dataKey="name" {...AX} /><YAxis {...AX} />
+                <Tooltip {...TT} />
+                <Bar dataKey="n" name="Golpes" radius={[6, 6, 0, 0]}>
+                  {punchData.map((g, i) => <Cell key={i} fill={g.color} />)}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       <RoutineEditor detail={detail} code={code} exercises={exercises} exById={exById} pin={pin} notify={notify} reload={reload} />
@@ -231,14 +304,19 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
         <h3 style={{ marginTop: 0 }}>Resumen por ejercicio</h3>
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Ejercicio</th><th>Series</th><th>Reps</th><th>Mejor serie</th><th>Técnica</th><th>ROM °</th><th>Inclinación</th><th>Torso °</th></tr></thead>
+            <thead><tr><th>Ejercicio</th><th>Series</th><th>Reps / golpes</th><th>Mejor serie</th><th>Técnica</th><th>ROM °</th><th>Inclinación</th><th>Lastre máx</th><th>1RM est.</th><th>Volumen</th><th>Precisión</th><th>Vel. pico golpe</th></tr></thead>
             <tbody>
               {(detail.by_exercise || []).map((e) => (
                 <tr key={e.exercise_id}>
                   <td>{exById[e.exercise_id]?.icon} {exById[e.exercise_id]?.name}</td>
                   <td className="mono">{e.sets}</td><td className="mono">{e.reps}</td><td className="mono">{e.best_set}</td>
                   <td className="mono">{e.form ?? '—'}</td><td className="mono">{e.rom ?? '—'}</td>
-                  <td className="mono">{e.incline ?? 0}°</td><td className="mono">{e.tilt ?? '—'}</td>
+                  <td className="mono">{e.incline ?? 0}°</td>
+                  <td className="mono">{Number(e.max_load) ? `+${e.max_load} kg` : '—'}</td>
+                  <td className="mono">{e.best_1rm ? `${e.best_1rm} kg` : '—'}</td>
+                  <td className="mono">{e.volume_kg ? `${e.volume_kg} kg` : '—'}</td>
+                  <td className="mono">{e.accuracy != null ? `${e.accuracy}%` : '—'}</td>
+                  <td className="mono">{e.punch_peak ? `${e.punch_peak} m/s` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -250,7 +328,7 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
         <h3 style={{ marginTop: 0 }}>Historial de series</h3>
         <div className="table-wrap" style={{ maxHeight: 360 }}>
           <table>
-            <thead><tr><th>Fecha</th><th>Ejercicio</th><th>Serie</th><th>Reps</th><th>Técnica</th><th>Fatiga</th><th>Vel. pico</th><th>Incl.</th><th>kcal</th></tr></thead>
+            <thead><tr><th>Fecha</th><th>Ejercicio</th><th>Serie</th><th>Reps</th><th>Lastre</th><th>1RM</th><th>Técnica</th><th>Precisión</th><th>Fatiga</th><th>Vel. pico</th><th>Incl.</th><th>kcal</th></tr></thead>
             <tbody>
               {(detail.sets || []).map((s) => (
                 <tr key={s.id}>
@@ -258,14 +336,17 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
                   <td>{exById[s.exercise_id]?.name}</td>
                   <td className="mono">{s.set_number}</td>
                   <td className="mono">{s.reps}/{s.target_reps ?? '—'}</td>
+                  <td className="mono">{Number(s.load_kg) ? `+${s.load_kg}` : '—'}</td>
+                  <td className="mono">{s.est_1rm ?? '—'}</td>
                   <td className="mono">{s.form_score ?? '—'}</td>
+                  <td className="mono">{s.accuracy != null ? `${s.accuracy}%` : '—'}</td>
                   <td className="mono">{s.fatigue_pct != null ? `${s.fatigue_pct}%` : '—'}</td>
-                  <td className="mono">{s.peak_speed ?? '—'}</td>
+                  <td className="mono">{s.peak_speed ?? s.avg_punch_speed ?? '—'}</td>
                   <td className="mono">{s.incline_deg}°</td>
                   <td className="mono">{s.kcal}</td>
                 </tr>
               ))}
-              {!detail.sets?.length && <tr><td colSpan={9} className="muted">Sin series registradas.</td></tr>}
+              {!detail.sets?.length && <tr><td colSpan={12} className="muted">Sin series registradas.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -280,10 +361,14 @@ function RoutineEditor({ detail, code, exercises, exById, pin, notify, reload })
   const [reps, setReps] = useState(10)
   const [incline, setIncline] = useState(0)
   const [rest, setRest] = useState(60)
+  const [load, setLoad] = useState(0)
+  const [stance, setStance] = useState('orthodox')
+  const sel = exById[ex]
+  const boxing = sel?.kind === 'boxing'
 
   const add = async () => {
     try {
-      await api.adminAddRoutine(pin, code, { exercise_id: ex, sets, reps, incline_deg: incline, rest_sec: rest })
+      await api.adminAddRoutine(pin, code, { exercise_id: ex, sets, reps, incline_deg: incline, rest_sec: rest, load_kg: sel?.supports_load ? load : 0, stance })
       notify('Ejercicio asignado'); reload()
     } catch (e) { notify(e.message) }
   }
@@ -299,7 +384,7 @@ function RoutineEditor({ detail, code, exercises, exById, pin, notify, reload })
           <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 12, background: 'rgba(255,255,255,.03)', border: '1px solid var(--line)' }}>
             <span style={{ fontSize: 22 }}>{exById[r.exercise_id]?.icon}</span>
             <span style={{ fontWeight: 600 }}>{exById[r.exercise_id]?.name}</span>
-            <span className="mono muted">{r.sets}×{r.reps} · {r.incline_deg}° · {r.rest_sec}s</span>
+            <span className="mono muted">{exById[r.exercise_id]?.kind === 'boxing' ? `${r.sets}R × ${r.reps}s · ${r.stance === 'southpaw' ? 'zurdo' : 'ortodoxo'}` : `${r.sets}×${r.reps} · ${r.incline_deg}°`}{Number(r.load_kg) ? ` · +${r.load_kg} kg` : ''} · {r.rest_sec}s</span>
             <span className="chip" style={{ fontSize: 11 }}>{r.assigned_by === 'coach' ? 'Coach' : 'Cliente'}</span>
             <GlowButton variant="sm hot ghost" style={{ marginLeft: 'auto' }} onClick={() => remove(r.id)}>✕</GlowButton>
           </div>
@@ -309,16 +394,29 @@ function RoutineEditor({ detail, code, exercises, exById, pin, notify, reload })
       <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', alignItems: 'end' }}>
         <div className="field" style={{ margin: 0 }}>
           <label>Ejercicio</label>
-          <select className="text-input" value={ex} onChange={(e) => setEx(e.target.value)}>
+          <select className="text-input" value={ex} onChange={(e) => { const n = exById[e.target.value]; setEx(e.target.value); setSets(n.default_sets); setReps(n.default_reps); setLoad(0) }}>
             {exercises.map((e) => <option key={e.id} value={e.id} style={{ background: '#0f1528' }}>{e.icon} {e.name}</option>)}
           </select>
         </div>
-        <div className="field" style={{ margin: 0 }}><label>Series</label><Stepper value={sets} onChange={setSets} max={20} /></div>
-        <div className="field" style={{ margin: 0 }}><label>Reps</label><Stepper value={reps} onChange={setReps} max={100} /></div>
-        <div className="field" style={{ margin: 0 }}>
-          <label>Inclinación <b>{incline}°</b></label>
-          <input type="range" min={-45} max={90} step={5} value={incline} onChange={(e) => setIncline(+e.target.value)} />
-        </div>
+        <div className="field" style={{ margin: 0 }}><label>{boxing ? 'Rounds' : 'Series'}</label><Stepper value={sets} onChange={setSets} max={20} /></div>
+        <div className="field" style={{ margin: 0 }}><label>{boxing ? 'Seg / round' : 'Reps'}</label><Stepper value={reps} onChange={setReps} min={boxing ? 15 : 1} max={boxing ? 300 : 100} step={boxing ? 15 : 1} /></div>
+        {boxing ? (
+          <div className="field" style={{ margin: 0 }}>
+            <label>Guardia</label>
+            <select className="text-input" value={stance} onChange={(e) => setStance(e.target.value)}>
+              <option value="orthodox" style={{ background: '#0f1528' }}>Ortodoxo</option>
+              <option value="southpaw" style={{ background: '#0f1528' }}>Zurdo</option>
+            </select>
+          </div>
+        ) : (
+          <div className="field" style={{ margin: 0 }}>
+            <label>Inclinación <b>{incline}°</b></label>
+            <input type="range" min={-45} max={90} step={5} value={incline} onChange={(e) => setIncline(+e.target.value)} />
+          </div>
+        )}
+        {sel?.supports_load && (
+          <div className="field" style={{ margin: 0 }}><label>Lastre <b>+{load} kg</b></label><Stepper value={load} onChange={setLoad} min={0} max={200} step={2.5} /></div>
+        )}
         <div className="field" style={{ margin: 0 }}>
           <label>Descanso <b>{rest}s</b></label>
           <input type="range" min={15} max={240} step={15} value={rest} onChange={(e) => setRest(+e.target.value)} />
@@ -328,3 +426,6 @@ function RoutineEditor({ detail, code, exercises, exById, pin, notify, reload })
     </div>
   )
 }
+
+const PUNCH_NAMES = { jab: 'Jab', cross: 'Directo', lead_hook: 'Gancho adel.', rear_hook: 'Gancho atrás', lead_upper: 'Upper adel.', rear_upper: 'Upper atrás' }
+const punchName = (id) => PUNCH_NAMES[id] || id

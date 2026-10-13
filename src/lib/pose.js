@@ -1,7 +1,7 @@
 import { FilesetResolver, PoseLandmarker } from '@mediapipe/tasks-vision'
 
 const WASM = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-const MODELS = {
+export const MODELS = {
   lite: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
   full: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',
 }
@@ -10,21 +10,25 @@ export const isMobile = () =>
   /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
   (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))
 
-let cached = null
+export const defaultModel = () => (isMobile() ? 'lite' : 'full')
 
-/** Carga (una sola vez) el detector de pose de 33 puntos con máscara de segmentación. */
-export function loadPoseLandmarker() {
-  if (cached) return cached
-  cached = (async () => {
-    const fileset = await FilesetResolver.forVisionTasks(WASM)
+let fileset = null
+const cache = {}
+
+/** Carga (una vez por variante) el detector de pose de 33 puntos. Sin máscara de
+ *  segmentación: leerla de la GPU en cada fotograma era el principal cuello de botella. */
+export function loadPoseLandmarker(variant = defaultModel()) {
+  if (cache[variant]) return cache[variant]
+  cache[variant] = (async () => {
+    fileset ??= await FilesetResolver.forVisionTasks(WASM)
     const opts = (delegate) => ({
-      baseOptions: { modelAssetPath: isMobile() ? MODELS.lite : MODELS.full, delegate },
+      baseOptions: { modelAssetPath: MODELS[variant], delegate },
       runningMode: 'VIDEO',
       numPoses: 1,
       minPoseDetectionConfidence: 0.5,
       minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-      outputSegmentationMasks: true,
+      minTrackingConfidence: 0.6,
+      outputSegmentationMasks: false,
     })
     try {
       return await PoseLandmarker.createFromOptions(fileset, opts('GPU'))
@@ -32,8 +36,8 @@ export function loadPoseLandmarker() {
       return await PoseLandmarker.createFromOptions(fileset, opts('CPU'))
     }
   })()
-  cached.catch(() => { cached = null })
-  return cached
+  cache[variant].catch(() => { delete cache[variant] })
+  return cache[variant]
 }
 
 // Conexiones del esqueleto (índices MediaPipe)

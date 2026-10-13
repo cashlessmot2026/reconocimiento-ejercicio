@@ -258,6 +258,52 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
 
 .toast { position: fixed; left: 50%; bottom: calc(20px + var(--safe-b)); transform: translateX(-50%); z-index: 90; padding: 12px 18px; border-radius: 14px; background: var(--panel-solid); border: 1px solid var(--line); box-shadow: 0 10px 40px -10px #000; max-width: calc(100% - 32px); }
 
+
+/* ---------- Reconocimiento facial ---------- */
+.face-sheet { width: min(520px, 100%); }
+.face-stage { position: relative; margin: 14px 0 10px; border-radius: 18px; overflow: hidden; background: #000; aspect-ratio: 4 / 3; border: 1px solid var(--line); }
+.face-stage video, .face-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.face-oval { position: absolute; left: 50%; top: 50%; width: 46%; height: 72%; transform: translate(-50%, -50%); border-radius: 50%; border: 2px dashed rgba(34, 211, 238, 0.55); box-shadow: 0 0 0 999px rgba(3, 5, 12, 0.35); pointer-events: none; }
+.scanline { position: absolute; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--accent), transparent); box-shadow: 0 0 18px var(--accent); animation: scan 2.2s ease-in-out infinite; }
+@keyframes scan { 0%, 100% { top: 12%; } 50% { top: 86%; } }
+.face-result { position: absolute; inset: 0; display: grid; place-items: center; align-content: center; gap: 4px; text-align: center; background: rgba(4, 6, 14, 0.78); }
+.face-progress { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.face-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); box-shadow: 0 0 12px var(--accent); }
+.or-sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+.or-sep::before, .or-sep::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.profile-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ---------- Carga ---------- */
+.load-badge { background: linear-gradient(135deg, #fbbf24, #f97316) !important; }
+
+/* ---------- Boxeo ---------- */
+.round-ring { position: relative; width: 84px; height: 84px; display: grid; place-items: center; }
+.round-ring svg { position: absolute; inset: 0; }
+.round-ring b { position: relative; font-size: 18px; }
+.punch-flash { position: absolute; left: 50%; top: 18%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 10px 18px 10px 10px; border-radius: 18px; background: rgba(5, 8, 18, 0.78); border: 1px solid var(--pc); box-shadow: 0 0 36px -6px var(--pc); pointer-events: none; white-space: nowrap; }
+.punch-flash .pnum { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; font-family: var(--mono); font-size: 30px; font-weight: 700; color: #041018; background: var(--pc); }
+.punch-flash b { font-size: 20px; }
+.punch-flash .mono { font-size: 12px; color: var(--muted); }
+.combo-call { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: none; }
+.combo-step { min-width: 70px; padding: 10px 12px; border-radius: 16px; text-align: center; background: rgba(5, 8, 18, 0.75); border: 2px solid var(--pc); box-shadow: 0 0 24px -8px var(--pc); }
+.combo-step span { display: block; font-family: var(--mono); font-size: 34px; font-weight: 700; color: var(--pc); line-height: 1; }
+.combo-step small { font-size: 10px; color: var(--muted); }
+.combo-step.ok { background: rgba(52, 211, 153, 0.25); border-color: var(--ok); }
+.combo-step.bad { background: rgba(251, 113, 133, 0.25); border-color: var(--hot); opacity: 0.8; }
+.punch-bars { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-top: 6px; }
+.pbar { display: grid; justify-items: center; gap: 2px; }
+.pbar-track { width: 100%; max-width: 34px; height: 44px; border-radius: 8px; background: rgba(255, 255, 255, 0.06); position: relative; overflow: hidden; }
+.pbar-track i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--pc); box-shadow: 0 0 10px var(--pc); transition: height 0.2s; }
+.pbar b { font-size: 13px; }
+.pbar small { font-size: 9px; color: var(--muted); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 560px) {
+  .combo-step { min-width: 52px; padding: 8px; }
+  .combo-step span { font-size: 26px; }
+  .punch-flash { top: auto; bottom: 200px; }
+  .pbar small { display: none; }
+  .round-ring { transform: scale(0.85); }
+}
+
 /* ---------- Responsivo ---------- */
 @media (max-width: 1100px) {
   .admin-grid { grid-template-columns: 1fr; }

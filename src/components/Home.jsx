@@ -3,6 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import BodyMap from './BodyMap'
+import FaceId from './FaceId'
+
+const toItem = (ex, r) => ({
+  exercise: ex, sets: r.sets, reps: r.reps, incline_deg: r.incline_deg, rest_sec: r.rest_sec,
+  load_kg: Number(r.load_kg) || 0, stance: r.stance || 'orthodox', routine_id: r.id || null,
+})
 
 export default function Home({ boot, client, onEnter, onLogout, onStart, notify }) {
   const { copy, exercises, groups } = boot
@@ -23,10 +29,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
 
   const startRoutine = () =>
     onStart({
-      queue: routine.map((r) => ({
-        exercise: exById[r.exercise_id], sets: r.sets, reps: r.reps,
-        incline_deg: r.incline_deg, rest_sec: r.rest_sec, routine_id: r.id,
-      })),
+      queue: routine.map((r) => toItem(exById[r.exercise_id], r)),
     })
 
   const removeItem = async (r) => {
@@ -57,7 +60,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
         </motion.div>
 
         <motion.div className="card code-box" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogout={onLogout} notify={notify} />
+          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogout={onLogout} notify={notify} face={boot.face} />
         </motion.div>
       </section>
 
@@ -83,15 +86,16 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
                       <div>
                         <div style={{ fontWeight: 700 }}>{ex.name}</div>
                         <div className="muted" style={{ fontSize: 13, display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-                          <span className="mono">{r.sets}×{r.reps}</span>
-                          <span>∠ {r.incline_deg}°</span>
+                          <span className="mono">{ex.kind === 'boxing' ? `${r.sets} rounds × ${r.reps}s` : `${r.sets}×${r.reps}`}</span>
+                          {Number(r.load_kg) > 0 && <span style={{ color: 'var(--warn)' }}>🏋️ +{Number(r.load_kg)} kg</span>}
+                          {ex.kind === 'boxing' ? <span>🥊 {r.stance === 'southpaw' ? 'Zurdo' : 'Ortodoxo'}</span> : <span>∠ {r.incline_deg}°</span>}
                           <span>⏱ {r.rest_sec}s</span>
                           <span style={{ color: g?.color }}>{g?.name}</span>
                           <span className="chip" style={{ padding: '1px 8px', fontSize: 11 }}>{r.assigned_by === 'coach' ? '🧑‍🏫 Coach' : '🙋 Tú'}</span>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <GlowButton variant="sm" onClick={() => onStart({ queue: [{ exercise: ex, sets: r.sets, reps: r.reps, incline_deg: r.incline_deg, rest_sec: r.rest_sec, routine_id: r.id }] })}>▶</GlowButton>
+                        <GlowButton variant="sm" onClick={() => onStart({ queue: [toItem(ex, r)] })}>▶</GlowButton>
                         {r.assigned_by === 'cliente' && <GlowButton variant="sm hot ghost" onClick={() => removeItem(r)}>✕</GlowButton>}
                       </div>
                     </motion.div>
@@ -156,11 +160,12 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
       <ExerciseConfig
         exercise={config}
         groups={groups}
+        bodyKg={client?.body_weight_kg}
         onClose={() => setConfig(null)}
         onStart={(p) => { setConfig(null); onStart({ queue: [p] }) }}
         onSave={async (p) => {
           try {
-            await api.addRoutine(client.code, { exercise_id: p.exercise.id, sets: p.sets, reps: p.reps, incline_deg: p.incline_deg, rest_sec: p.rest_sec })
+            await api.addRoutine(client.code, { exercise_id: p.exercise.id, sets: p.sets, reps: p.reps, incline_deg: p.incline_deg, rest_sec: p.rest_sec, load_kg: p.load_kg, stance: p.stance })
             await onEnter(client.code)
             setConfig(null)
             notify(`${p.exercise.name} añadido a tu rutina`)
@@ -171,9 +176,11 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
   )
 }
 
-function CodeGate({ copy, client, onEnter, onLogout, notify }) {
+function CodeGate({ copy, client, onEnter, onLogout, notify, face }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [busy, setBusy] = useState(false)
+  const [faceMode, setFaceMode] = useState(null)
+  const [weight, setWeight] = useState('')
   const refs = [useRef(), useRef(), useRef(), useRef()]
 
   const submit = async (code) => {
@@ -213,7 +220,21 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
           <div className="stat"><b>{client.today?.reps ?? 0}</b><span>Reps hoy</span></div>
           <div className="stat"><b>{client.today?.kcal ?? 0}</b><span>kcal</span></div>
         </div>
+        <div className="profile-row">
+          <label className="muted" style={{ fontSize: 12 }}>Peso corporal (kg)</label>
+          <input className="text-input mono" inputMode="decimal" style={{ maxWidth: 110 }} placeholder={client.body_weight_kg ? String(client.body_weight_kg) : '—'}
+            value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9.]/g, ''))} />
+          <GlowButton variant="sm" disabled={!weight} onClick={async () => {
+            try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
+          }}>Guardar</GlowButton>
+        </div>
+        <GlowButton variant={client.face_samples ? 'ghost ok' : 'ghost'} onClick={() => setFaceMode('enroll')}>
+          {client.face_samples ? `🙂 Rostro registrado (${client.face_samples}) · Actualizar` : '🙂 Registrar mi rostro para entrar sin código'}
+        </GlowButton>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Todo lo que entrenes se registrará en este código.</p>
+        <FaceId open={faceMode === 'enroll'} mode="enroll" code={client.code} consentText={face?.consent}
+          onClose={() => setFaceMode(null)}
+          onEnrolled={async (r) => { setFaceMode(null); await onEnter(client.code); notify(`Rostro registrado · ${r.samples} muestras`) }} />
       </>
     )
   }
@@ -244,20 +265,29 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
       <GlowButton variant="solid" disabled={!digits.every(Boolean) || busy} onClick={() => submit(digits.join(''))}>
         {busy ? 'Verificando…' : copy.start}
       </GlowButton>
+      <div className="or-sep"><span>o</span></div>
+      <GlowButton variant="ghost" onClick={() => setFaceMode('identify')}>🙂 Entrar con reconocimiento facial</GlowButton>
+      <FaceId open={faceMode === 'identify'} mode="identify" onClose={() => setFaceMode(null)}
+        onIdentified={async (r) => { setFaceMode(null); await submit(r.code); notify(`¡Hola! Cliente ${r.code} · confianza ${r.confidence}%`) }} />
     </>
   )
 }
 
-function ExerciseConfig({ exercise, groups, onClose, onStart, onSave }) {
+function ExerciseConfig({ exercise, groups, bodyKg, onClose, onStart, onSave }) {
   const [sets, setSets] = useState(3)
   const [reps, setReps] = useState(10)
   const [incline, setIncline] = useState(0)
   const [rest, setRest] = useState(60)
+  const [load, setLoad] = useState(0)
+  const [stance, setStance] = useState('orthodox')
   const [lastId, setLastId] = useState(null)
   if (exercise && exercise.id !== lastId) {
-    setLastId(exercise.id); setSets(exercise.default_sets); setReps(exercise.default_reps); setIncline(0); setRest(60)
+    setLastId(exercise.id); setSets(exercise.default_sets); setReps(exercise.default_reps); setIncline(0); setRest(60); setLoad(0)
   }
-  const p = exercise && { exercise, sets, reps, incline_deg: incline, rest_sec: rest, routine_id: null }
+  const boxing = exercise?.kind === 'boxing'
+  const p = exercise && { exercise, sets, reps, incline_deg: boxing ? 0 : incline, rest_sec: rest, load_kg: exercise.supports_load ? load : 0, stance, routine_id: null }
+  const bw = Number(bodyKg) || 70
+  const eff = exercise ? bw * Number(exercise.bw_factor || 0) + load : 0
   return (
     <Modal open={!!exercise} onClose={onClose}>
       {exercise && (
@@ -275,13 +305,38 @@ function ExerciseConfig({ exercise, groups, onClose, onStart, onSave }) {
             ))}
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="field"><label>Series</label><Stepper value={sets} onChange={setSets} max={20} /></div>
-            <div className="field"><label>Repeticiones</label><Stepper value={reps} onChange={setReps} max={100} /></div>
+            <div className="field"><label>{boxing ? 'Rounds' : 'Series'}</label><Stepper value={sets} onChange={setSets} max={boxing ? 12 : 20} /></div>
+            {boxing
+              ? <div className="field"><label>Segundos por round</label><Stepper value={reps} onChange={setReps} min={15} max={300} step={15} /></div>
+              : <div className="field"><label>Repeticiones</label><Stepper value={reps} onChange={setReps} max={100} /></div>}
           </div>
-          <div className="field">
-            <label>Grados de inclinación (banco / superficie) <b>{incline}°</b></label>
-            <input type="range" min={-45} max={90} step={5} value={incline} onChange={(e) => setIncline(+e.target.value)} />
-          </div>
+          {boxing ? (
+            <div className="field">
+              <label>Guardia</label>
+              <div className="tabs" style={{ width: 'fit-content' }}>
+                {[['orthodox', 'Ortodoxo (izq. adelante)'], ['southpaw', 'Zurdo (der. adelante)']].map(([k, l]) => (
+                  <button key={k} type="button" className={`tab ${stance === k ? 'active' : ''}`} onClick={() => setStance(k)}>
+                    {stance === k && <motion.i layoutId="stancepill" className="pill" />}<span>{l}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="field">
+              <label>Grados de inclinación (banco / superficie) <b>{incline}°</b></label>
+              <input type="range" min={-45} max={90} step={5} value={incline} onChange={(e) => setIncline(+e.target.value)} />
+            </div>
+          )}
+          {exercise.supports_load && (
+            <div className="field">
+              <label>Lastre / carga adicional <b>+{load} kg</b></label>
+              <Stepper value={load} onChange={setLoad} min={0} max={200} step={2.5} />
+              <span className="muted" style={{ fontSize: 12 }}>
+                Carga por repetición: {Number(exercise.bw_factor) > 0 ? `${bw} kg × ${exercise.bw_factor} + ${load} kg = ` : ''}<b className="mono" style={{ color: 'var(--warn)' }}>{eff.toFixed(1)} kg</b>
+                {!bodyKg && Number(exercise.bw_factor) > 0 ? ' (registra tu peso para mayor exactitud)' : ''}
+              </span>
+            </div>
+          )}
           <div className="field">
             <label>Descanso entre series <b>{rest}s</b></label>
             <input type="range" min={15} max={240} step={15} value={rest} onChange={(e) => setRest(+e.target.value)} />

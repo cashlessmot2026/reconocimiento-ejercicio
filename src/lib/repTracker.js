@@ -76,7 +76,7 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
     else { raw = aR; s.side = 'R' }
     if (raw == null) return s
 
-    ema = ema == null ? raw : ema + (raw - ema) * 0.45
+    ema = ema == null ? raw : ema + (raw - ema) * 0.75 // los landmarks ya vienen filtrados (One-Euro)
     s.angle = ema
     const p = Math.max(0, Math.min(1, (rest - ema) / span))
     s.progress = p
