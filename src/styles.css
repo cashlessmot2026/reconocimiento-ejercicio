@@ -277,6 +277,22 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
   .glow-btn.icon { width: 42px; height: 42px; min-height: 42px; }
   .brand small { display: none; }
 }
+@media (max-width: 560px) {
+  .hud-tl { max-width: calc(100% - 84px); }
+  .hud-tr { flex-direction: column; }
+  .hud-r { top: auto; bottom: 200px; transform: none; }
+  .hud-r .vbar { height: 22vh; }
+}
+@media (max-height: 820px) {
+  .rep-count { font-size: clamp(56px, 9vh, 90px); }
+  .metrics { grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 4px; }
+  .metric b { font-size: 16px; }
+  .rep-card { bottom: 140px; }
+}
+@media (max-height: 620px) {
+  .metric:nth-child(n + 5) { display: none; }
+  .trace svg { height: 34px !important; }
+}
 @media (orientation: landscape) and (max-height: 500px) {
   .rep-count { font-size: 56px; }
   .metrics { grid-template-columns: 1fr 1fr; }

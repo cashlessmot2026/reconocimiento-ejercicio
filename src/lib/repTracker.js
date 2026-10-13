@@ -47,6 +47,7 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
   let swayMin = Infinity, swayMax = -Infinity
   let tiltSum = 0, tiltN = 0
   let bestSpeeds = []
+  let restExtreme = null // ángulo más cercano al reposo antes de iniciar la rep
 
   function update(lm, t) {
     if (!lm) {
@@ -114,7 +115,10 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
       case 'lost':
       case 'rest':
         // Solo se arranca una rep desde la posición inicial (reposo)
-        if (p < 0.25) s.phase = 'rest'
+        if (p < 0.25) {
+          s.phase = 'rest'
+          if (restExtreme == null || Math.abs(ema - peak) > Math.abs(restExtreme - peak)) restExtreme = ema
+        }
         else if (s.phase === 'rest') startRep(t)
         break
       case 'concentric':
@@ -139,7 +143,8 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
     s.phase = 'concentric'
     repStart = t
     peakReached = false
-    minA = Infinity; maxA = -Infinity; maxP = 0
+    minA = Math.min(Infinity, restExtreme ?? Infinity); maxA = Math.max(-Infinity, restExtreme ?? -Infinity); maxP = 0
+    restExtreme = null
     swayMin = Infinity; swayMax = -Infinity
     s.peakSpeedRep = 0
   }
