@@ -53,8 +53,24 @@ alter table ej_assessments enable row level security;   -- sin políticas: solo 
 
 -- ---------- Validación y cálculos ----------
 create or replace function ej_assessment_derive() returns trigger language plpgsql as $$
-declare act numeric; fat numeric;
+declare act numeric; fat numeric; prev record;
 begin
+  -- Datos que casi no cambian: se heredan de la evaluación anterior si no se envían
+  if tg_op = 'INSERT' then
+    select sex, birth_date, height_cm, activity_level, experience, goal, goal_weight_kg, goal_fat_pct, injuries
+      into prev from ej_assessments
+      where client_code = new.client_code and measured_on <= new.measured_on
+      order by measured_on desc limit 1;
+    new.sex            := coalesce(new.sex, prev.sex);
+    new.birth_date     := coalesce(new.birth_date, prev.birth_date);
+    new.height_cm      := coalesce(new.height_cm, prev.height_cm);
+    new.activity_level := coalesce(new.activity_level, prev.activity_level);
+    new.experience     := coalesce(new.experience, prev.experience);
+    new.goal           := coalesce(new.goal, prev.goal);
+    new.goal_weight_kg := coalesce(new.goal_weight_kg, prev.goal_weight_kg);
+    new.goal_fat_pct   := coalesce(new.goal_fat_pct, prev.goal_fat_pct);
+    new.injuries       := coalesce(new.injuries, prev.injuries);
+  end if;
   if new.height_cm is not null and (new.height_cm < 80 or new.height_cm > 250) then raise exception 'La estatura debe estar entre 80 y 250 cm'; end if;
   if new.weight_kg is not null and (new.weight_kg < 25 or new.weight_kg > 400) then raise exception 'El peso debe estar entre 25 y 400 kg'; end if;
   if new.body_fat_pct is not null and (new.body_fat_pct < 2 or new.body_fat_pct > 70) then raise exception 'El %% de grasa debe estar entre 2 y 70'; end if;
