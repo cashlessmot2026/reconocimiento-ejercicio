@@ -31,6 +31,8 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
   })
 
   const [status, setStatus] = useState('loading') // loading | ready | error
+  const [stage, setStage] = useState('camera')       // camera | model: qué se está esperando
+  const [attempt, setAttempt] = useState(0)
   const [error, setError] = useState('')
   const [facing, setFacing] = useState(() => camPref.get())
   const [cameras, setCameras] = useState([]) // [{ id, label, facing }]
@@ -81,13 +83,23 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     }
   }, [refreshDevices])
 
-  // Inicialización
+  // Inicialización (con tiempo límite: antes, si la cámara o el modelo no respondían, se quedaba cargando para siempre)
   useEffect(() => {
     let alive = true
+    const limit = (p, ms, msg) => new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error(msg)), ms)
+      p.then((v) => { clearTimeout(t); resolve(v) }, (e) => { clearTimeout(t); reject(e) })
+    })
     ;(async () => {
       try {
+        setStatus('loading'); setError(''); setStage('camera')
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara (se requiere HTTPS).')
-        const [lm, cam] = await Promise.all([loadPoseLandmarker(model), startCamera(facing)])
+        const camP = limit(startCamera(facing), 20000,
+          'La cámara no responde. Cierra otras apps o pestañas que la usen (WhatsApp, Zoom, cámara virtual) y pulsa Reintentar.')
+          .then((c) => { if (alive) setStage('model'); return c })
+        const lmP = limit(loadPoseLandmarker(model), 75000,
+          'No se pudo cargar el modelo de visión. Revisa tu conexión a internet y pulsa Reintentar.')
+        const [lm, cam] = await Promise.all([lmP, camP])
         if (!alive) return
         if (cam.reported && cam.reported !== facing) setFacing(cam.reported)
         lmRef.current = lm
@@ -103,7 +115,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
       alive = false
       streamRef.current?.getTracks().forEach((t) => t.stop())
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Bucle de visión
   useEffect(() => {
@@ -217,5 +229,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
 
   const stop = useCallback(() => streamRef.current?.getTracks().forEach((t) => t.stop()), [])
 
-  return { videoRef, canvasRef, vpRef, status, error, facing, flip, selectCamera, cameras, activeId, model, switchModel, fps, latency, delegate, stop }
+  const retry = useCallback(() => setAttempt((a) => a + 1), [])
+
+  return { videoRef, canvasRef, vpRef, status, stage, retry, error, facing, flip, selectCamera, cameras, activeId, model, switchModel, fps, latency, delegate, stop }
 }

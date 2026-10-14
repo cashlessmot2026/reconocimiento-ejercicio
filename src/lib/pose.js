@@ -41,8 +41,12 @@ export function loadPoseLandmarker(variant = defaultModel()) {
     lm.delegateUsed = delegate
     return lm
   })()
-  cache[variant].catch(() => { delete cache[variant] })
-  return cache[variant]
+  const p = cache[variant]
+  p.catch(() => { if (cache[variant] === p) delete cache[variant] })
+  // Si la descarga queda colgada, se descarta para que «Reintentar» empiece de nuevo
+  setTimeout(() => { if (cache[variant] === p && !p.delegateUsedReady) delete cache[variant] }, 80000)
+  p.then((lm) => { p.delegateUsedReady = !!lm })
+  return p
 }
 
 // Conexiones del esqueleto (índices MediaPipe)

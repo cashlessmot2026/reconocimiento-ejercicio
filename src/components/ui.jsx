@@ -37,14 +37,14 @@ export function Modal({ open, onClose, children, className = '' }) {
           className="overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          exit={{ opacity: 0, transition: { duration: 0.08 } }}
           onClick={onClose}
         >
           <motion.div
             className={`card sheet ${className}`}
             initial={{ y: 40, scale: 0.96, opacity: 0 }}
             animate={{ y: 0, scale: 1, opacity: 1 }}
-            exit={{ y: 30, scale: 0.97, opacity: 0 }}
+            exit={{ opacity: 0, transition: { duration: 0.08 } }}
             transition={{ type: 'spring', stiffness: 320, damping: 28 }}
             onClick={(e) => e.stopPropagation()}
           >

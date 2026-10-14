@@ -91,12 +91,21 @@ export function CamOverlays({ cam, onBack, hint }) {
       {(cam.status === 'loading' || cam.status === 'error') && (
         <motion.div className="center-msg" style={{ background: 'rgba(4,6,14,.85)' }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           {cam.status === 'loading' ? (
-            <div><div className="loader" /><b>Cargando visión artificial…</b><p className="muted">{hint}</p></div>
+            <div>
+              <div className="loader" />
+              <b>{cam.stage === 'model' ? 'Cargando el modelo de visión…' : 'Abriendo la cámara…'}</b>
+              <p className="muted">{cam.stage === 'model' ? 'La primera vez descarga unos MB; las siguientes es inmediato.' : 'Si el navegador pide permiso de cámara, acéptalo.'}</p>
+              {hint && <p className="muted">{hint}</p>}
+              <GlowButton variant="sm ghost" onClick={onBack}>Cancelar</GlowButton>
+            </div>
           ) : (
             <div className="card" style={{ padding: 24, maxWidth: 420 }}>
               <h3 style={{ marginTop: 0 }}>No se pudo iniciar la cámara</h3>
               <p className="muted">{cam.error}</p>
-              <GlowButton variant="solid" onClick={onBack}>Volver</GlowButton>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {cam.retry && <GlowButton variant="solid" onClick={cam.retry}>↻ Reintentar</GlowButton>}
+                <GlowButton variant="ghost" onClick={onBack}>Volver</GlowButton>
+              </div>
             </div>
           )}
         </motion.div>

@@ -35,8 +35,10 @@ export default function App() {
   useEffect(() => {
     doBoot()
     // Precarga el modelo de pose en segundo plano
-    loadPoseLandmarker().catch(() => {})
+    // Con un pequeño retraso para no competir con la carga inicial de la pantalla
+    const pre = setTimeout(() => loadPoseLandmarker().catch(() => {}), 2500)
     if (location.hash === '#admin') setPinOpen(true)
+    return () => clearTimeout(pre)
   }, [doBoot])
 
   useEffect(() => {
