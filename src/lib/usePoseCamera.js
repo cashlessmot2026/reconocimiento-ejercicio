@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { defaultModel, loadPoseLandmarker } from './pose'
 import { createLandmarkFilter } from './filters'
-import { cameraError, openCamera } from './face'
+import { cameraError, openCamera } from './camera'
 
 /**
  * Cámara + detector de pose con el bucle más rápido disponible:

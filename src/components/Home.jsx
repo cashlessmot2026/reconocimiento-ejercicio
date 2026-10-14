@@ -3,14 +3,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import BodyMap from './BodyMap'
-import FaceId from './FaceId'
 
 const toItem = (ex, r) => ({
   exercise: ex, sets: r.sets, reps: r.reps, incline_deg: r.incline_deg, rest_sec: r.rest_sec,
   load_kg: Number(r.load_kg) || 0, stance: r.stance || 'orthodox', routine_id: r.id || null,
 })
 
-export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart, notify, faceEnabled }) {
+export default function Home({ boot, client, onEnter, onLogout, onStart, notify }) {
   const { copy, exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [cat, setCat] = useState('Todos')
@@ -60,7 +59,7 @@ export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart
         </motion.div>
 
         <motion.div className="card code-box" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogin={onLogin} onLogout={onLogout} notify={notify} faceEnabled={faceEnabled} />
+          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogout={onLogout} notify={notify} />
         </motion.div>
       </section>
 
@@ -176,16 +175,15 @@ export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart
   )
 }
 
-function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify, faceEnabled }) {
+function CodeGate({ copy, client, onEnter, onLogout, notify }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [busy, setBusy] = useState(false)
-  const [faceMode, setFaceMode] = useState(null)
   const [weight, setWeight] = useState('')
   const refs = [useRef(), useRef(), useRef(), useRef()]
 
   const submit = async (code) => {
     setBusy(true)
-    try { await onLogin(code, 'code') } catch (e) { notify(e.message) } finally { setBusy(false); setDigits(['', '', '', '']) }
+    try { await onEnter(code) } catch (e) { notify(e.message) } finally { setBusy(false) }
   }
 
   const setAt = (i, v) => {
@@ -228,10 +226,6 @@ function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify, faceEnable
             try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
           }}>Guardar</GlowButton>
         </div>
-        {client.face_samples > 0 && <span className="chip" style={{ alignSelf: 'flex-start', borderColor: 'rgba(52,211,153,.5)' }}>
-          <span className="dot" style={{ background: 'var(--ok)', boxShadow: '0 0 8px var(--ok)' }} />
-          Identidad verificada · rostro registrado ({client.face_samples} muestras)
-        </span>}
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Todo lo que entrenes se registrará en este código.</p>
       </>
     )
@@ -263,13 +257,6 @@ function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify, faceEnable
       <GlowButton variant="solid" disabled={!digits.every(Boolean) || busy} onClick={() => submit(digits.join(''))}>
         {busy ? 'Verificando…' : copy.start}
       </GlowButton>
-      {faceEnabled && <div className="or-sep"><span>o</span></div>}
-      {faceEnabled && <GlowButton variant="ghost" onClick={() => setFaceMode('identify')}>🙂 Entrar con reconocimiento facial</GlowButton>}
-      <FaceId open={faceMode === 'identify'} mode="identify" onClose={() => setFaceMode(null)}
-        onIdentified={async (r) => {
-          setFaceMode(null)
-          try { await onLogin(r.code, 'face'); notify(`¡Hola! Cliente ${r.code} · confianza ${r.confidence}%`) } catch (e) { notify(e.message) }
-        }} />
     </>
   )
 }

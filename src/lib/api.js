@@ -39,7 +39,6 @@ export async function loadBootstrap() {
     copy: cfg.copy ?? {},
     phases: cfg.phases ?? {},
     punches: cfg.punches ?? {},
-    face: cfg.face ?? {},
     groups: Object.fromEntries(groups.map((g) => [g.id, g])),
     exercises,
   }
@@ -53,15 +52,6 @@ export const api = {
       p_incline: r.incline_deg, p_rest: r.rest_sec, p_load: r.load_kg || 0, p_stance: r.stance || 'orthodox',
     }),
   setWeight: (code, kg) => rpc('ej_client_set_weight', { p_code: code, p_kg: kg }),
-  faceIdentify: (descs) => rpc('ej_face_identify', { p_descs: descs }),
-  faceEnroll: (code, samples) => rpc('ej_face_enroll', { p_code: code, p_samples: samples }),
-  faceVerify: (code, descs) => rpc('ej_face_verify', { p_code: code, p_descs: descs }),
-  faceConfig: async () => {
-    const { data, error } = await db().from('ej_config').select('value').eq('key', 'face').maybeSingle()
-    if (error) throw new Error(error.message)
-    return data?.value ?? {}
-  },
-  adminSetFaceEnabled: (pin, on) => rpc('ej_admin_set_face_enabled', { p_pin: pin, p_enabled: on }),
   removeRoutine: (code, id) => rpc('ej_client_remove_routine', { p_code: code, p_id: id }),
   saveSet: async (row) => {
     const { error } = await db().from('ej_sets').insert(row)
@@ -79,6 +69,5 @@ export const api = {
       p_incline: r.incline_deg, p_rest: r.rest_sec, p_load: r.load_kg || 0, p_stance: r.stance || 'orthodox',
     }),
   adminSetWeight: (pin, code, kg) => rpc('ej_admin_set_client_weight', { p_pin: pin, p_code: code, p_kg: kg }),
-  adminFaceDelete: (pin, code) => rpc('ej_admin_face_delete', { p_pin: pin, p_code: code }),
   adminRemoveRoutine: (pin, id) => rpc('ej_admin_remove_routine', { p_pin: pin, p_id: id }),
 }
