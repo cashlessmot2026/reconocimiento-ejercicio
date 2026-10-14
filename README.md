@@ -19,6 +19,15 @@ inclinación del torso y mostrar un **mapa de calor muscular** sobre el cuerpo.
   Clasifica jab, directo, ganchos y uppercuts con landmarks 3D; mide velocidad del puño, aciertos, golpes limpios,
   % de guardia y ritmo.
 
+## Evaluación física y progreso
+- **Formulario** (cliente desde su pantalla, o coach desde el panel): estatura, peso, edad / fecha de nacimiento, sexo,
+  % de grasa, masa muscular, grasa visceral, agua, perímetros (cuello, pecho, cintura, cadera, brazo, muslo, pantorrilla),
+  pulso y presión, objetivo, peso meta, nivel de actividad, experiencia y lesiones.
+- **Cálculos automáticos** (en el servidor): IMC y su clasificación, relación cintura/cadera y cintura/estatura,
+  metabolismo basal (Mifflin-St Jeor), gasto diario, % de grasa estimado (método Marina de EE. UU.), masa grasa y magra.
+- **Progreso**: % de cambio entre evaluaciones, % por día, % acumulado y % de avance hacia el peso meta;
+  entrenamiento por día con variación porcentual. El coach lo filtra por **rango de fechas**.
+
 ## Infraestructura
 - `supabase/schema.sql` + `supabase/migration_002.sql` — tablas `ej_*`, RLS, funciones RPC (el PIN se guarda hasheado con bcrypt).
 - Despliegue automático a **GitHub Pages** con GitHub Actions (`.github/workflows/deploy.yml`).

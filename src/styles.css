@@ -283,7 +283,8 @@ select.text-input option { background: #0f1528; }
 .calc b { font-size: 20px; }
 .calc span { font-size: 11px; }
 .form-err { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: rgba(251,113,133,.12); border: 1px solid rgba(251,113,133,.4); color: #fecdd3; font-size: 14px; }
-.range-bar { padding: 12px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; position: sticky; top: 64px; z-index: 15; }
+.range-bar { padding: 12px 14px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+@media (min-height: 760px) and (min-width: 700px) { .range-bar { position: sticky; top: 64px; z-index: 15; } }
 .rng { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
 .rng .text-input { padding: 8px 10px; width: auto; }
 .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
@@ -292,7 +293,6 @@ select.text-input option { background: #0f1528; }
 .link-btn { background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 14px; padding: 6px; }
 .link-btn:hover { color: var(--hot); }
 @media (max-width: 560px) {
-  .range-bar { top: 56px; }
   .presets { margin-left: 0; }
   .calc b { font-size: 17px; }
 }
