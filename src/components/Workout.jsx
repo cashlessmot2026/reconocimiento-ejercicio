@@ -74,7 +74,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
       }
       drawSkeleton(ctx, lm, P, unit)
       drawAngle(ctx, lm, P, ex, tr.state.angle, o.accent, unit)
-      if (now - hudT.current > 70) {
+      if (now - hudT.current > 110) {
         hudT.current = now
         const s = tr.state
         setHud({ ...s, trace: s.trace.slice(-160), repLog: s.repLog })

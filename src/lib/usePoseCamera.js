@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { defaultModel, loadPoseLandmarker } from './pose'
+import { defaultModel, isMobile, loadPoseLandmarker } from './pose'
 import { createLandmarkFilter } from './filters'
 import { cameraError, openCamera } from './camera'
 
@@ -30,6 +30,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
   const [facing, setFacing] = useState('user')
   const [model, setModel] = useState(defaultModel())
   const [fps, setFps] = useState(0)
+  const [delegate, setDelegate] = useState('')
   const [latency, setLatency] = useState(0)
 
   const startCamera = useCallback(async (mode) => {
@@ -37,9 +38,11 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     const portrait = window.innerHeight > window.innerWidth
     const stream = await openCamera({
       facingMode: mode,
-      width: { ideal: portrait ? 540 : 960 },
-      height: { ideal: portrait ? 960 : 540 },
-      frameRate: { ideal: 60, min: 24 },
+      // En celular se pide menos resolución y 30 fps: el modelo trabaja con una imagen pequeña
+      // y 60 fps solo añade carga que el teléfono no alcanza a procesar.
+      width: { ideal: isMobile() ? (portrait ? 360 : 640) : (portrait ? 540 : 960) },
+      height: { ideal: isMobile() ? (portrait ? 640 : 360) : (portrait ? 960 : 540) },
+      frameRate: isMobile() ? { ideal: 30, max: 30 } : { ideal: 60, min: 24 },
     })
     streamRef.current = stream
     const v = videoRef.current
@@ -56,6 +59,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
         const [lm] = await Promise.all([loadPoseLandmarker(model), startCamera(facing)])
         if (!alive) return
         lmRef.current = lm
+        setDelegate(lm.delegateUsed || '')
         setStatus('ready')
       } catch (e) {
         if (!alive) return
@@ -118,7 +122,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
   useEffect(() => {
     const el = vpRef.current
     const ro = new ResizeObserver(() => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      const dpr = isMobile() ? 1 : Math.min(window.devicePixelRatio || 1, 2)
       const c = canvasRef.current
       c.width = Math.round(el.clientWidth * dpr)
       c.height = Math.round(el.clientHeight * dpr)
@@ -137,11 +141,12 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     const next = model === 'lite' ? 'full' : 'lite'
     const det = await loadPoseLandmarker(next)
     lmRef.current = det
+    setDelegate(det.delegateUsed || '')
     filt.current.img.reset(); filt.current.world.reset()
     setModel(next)
   }, [model])
 
   const stop = useCallback(() => streamRef.current?.getTracks().forEach((t) => t.stop()), [])
 
-  return { videoRef, canvasRef, vpRef, status, error, facing, flip, model, switchModel, fps, latency, stop }
+  return { videoRef, canvasRef, vpRef, status, error, facing, flip, model, switchModel, fps, latency, delegate, stop }
 }

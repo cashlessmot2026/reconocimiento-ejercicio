@@ -31,11 +31,15 @@ export function loadPoseLandmarker(variant = defaultModel()) {
       minTrackingConfidence: 0.6,
       outputSegmentationMasks: false,
     })
+    let lm, delegate = 'GPU'
     try {
-      return await PoseLandmarker.createFromOptions(fileset, opts('GPU'))
+      lm = await PoseLandmarker.createFromOptions(fileset, opts('GPU'))
     } catch {
-      return await PoseLandmarker.createFromOptions(fileset, opts('CPU'))
+      delegate = 'CPU'
+      lm = await PoseLandmarker.createFromOptions(fileset, opts('CPU'))
     }
+    lm.delegateUsed = delegate
+    return lm
   })()
   cache[variant].catch(() => { delete cache[variant] })
   return cache[variant]

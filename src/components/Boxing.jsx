@@ -150,7 +150,7 @@ export default function Boxing({ boot, client, item, autoStart, isLast, nextName
         if (mode === 'targets' && d?.target) drawTarget(ctx, Pj, targetPos(lm, d.target.slot), d.target, now, r, unit)
       }
       if (d?.burst && now - d.burst.t < 450) drawBurst(ctx, Pj(d.burst), (now - d.burst.t) / 450, unit)
-      if (now - hudT.current > 80) {
+      if (now - hudT.current > 110) {
         hudT.current = now
         const st = bx.state
         setHud({ total: st.total, counts: { ...st.counts }, last: st.last, clean: st.clean, peak: st.peak,

@@ -28,7 +28,7 @@ export function TopControls({ cam, sound, setSound, onExit, extra }) {
 export function PerfBadge({ cam }) {
   return (
     <span className="mono" title="Fotogramas analizados por segundo · ms de inferencia">
-      {cam.fps} fps · {cam.latency} ms · {cam.model === 'lite' ? 'rápido' : 'preciso'}
+      {cam.fps} fps · {cam.latency} ms · {cam.model === 'lite' ? 'rápido' : 'preciso'}{cam.delegate ? ` · ${cam.delegate}` : ''}
     </span>
   )
 }

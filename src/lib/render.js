@@ -1,4 +1,6 @@
-import { BONES, LEFT } from './pose'
+import { BONES, LEFT, isMobile } from './pose'
+
+const MOBILE = typeof navigator !== 'undefined' && isMobile()
 
 // LUT térmico azul → cian → verde → amarillo → rojo
 const LUT = (() => {
@@ -50,7 +52,7 @@ export function drawThermal(ctx, lm, P, segHeat, torsoHeat) {
   const s1 = P(lm[11]), s2 = P(lm[12])
   const sw = Math.hypot(s1.x - s2.x, s1.y - s2.y) || 80
   ctx.save()
-  ctx.globalCompositeOperation = 'screen'
+  ctx.globalCompositeOperation = MOBILE ? 'source-over' : 'screen'
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   // torso
   if ([11, 12, 23, 24].every((i) => vis(lm[i]))) {
@@ -87,7 +89,7 @@ export function drawSkeleton(ctx, lm, P, unit) {
     const A = P(lm[a]), B = P(lm[b])
     const side = LEFT.has(a) && LEFT.has(b) ? '#fb923c' : !LEFT.has(a) && !LEFT.has(b) && a > 12 ? '#60a5fa' : '#ffffff'
     ctx.strokeStyle = side
-    ctx.shadowColor = side; ctx.shadowBlur = unit * 3
+    if (!MOBILE) { ctx.shadowColor = side; ctx.shadowBlur = unit * 3 }
     ctx.lineWidth = unit * 1.3
     ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke()
   }
