@@ -108,7 +108,7 @@ export default function App() {
       <Suspense fallback={<div className="center-msg" style={{ position: 'fixed', zIndex: 50 }}><div className="loader" /></div>}>
       <AnimatePresence mode="wait">
         {view === 'home' && (
-          <motion.main key="home" className="container" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}>
+          <motion.main key="home" className="container" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
             <Home
               boot={boot}
               client={client}
@@ -120,7 +120,7 @@ export default function App() {
           </motion.main>
         )}
         {view === 'admin' && adminPin && (
-          <motion.main key="admin" className="container" style={{ maxWidth: 1500 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.main key="admin" className="container" style={{ maxWidth: 1500 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
             <Admin boot={boot} pin={adminPin} notify={notify} onReloadBoot={() => loadBootstrap().then(setBoot).catch(() => {})} onLock={() => { setAdminPin(null); setView('home') }} />
           </motion.main>
         )}
