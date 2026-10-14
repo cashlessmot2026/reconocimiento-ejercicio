@@ -1,0 +1,78 @@
+name: Compilar APK de Android
+
+# Se ejecuta a mano: Actions → "Compilar APK de Android" → Run workflow.
+# Envuelve la PWA con Capacitor y publica KINETIC.apk en la release "apk-latest".
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - run: npm install --no-audit --no-fund
+
+      - name: Compilar la web (ruta raíz para la app nativa)
+        run: npm run build
+        env:
+          VITE_BASE: /
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Crear proyecto Android con Capacitor
+        run: |
+          npm install --no-save --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "com.kinetic.ejercicio",
+            "appName": "KINETIC",
+            "webDir": "dist",
+            "server": { "androidScheme": "https" },
+            "backgroundColor": "#070a14"
+          }
+          JSON
+          npx cap add android
+          npx cap sync android
+
+      - name: Permisos, icono y ajustes de Android
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<uses-permission android:name="android.permission.INTERNET" />#<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.WAKE_LOCK" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.camera.front" android:required="false" />#' $M
+          grep -n "permission\|uses-feature" $M
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              cp public/pwa-512.png android/app/src/main/res/mipmap-$d/$f.png
+            done
+          done
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Publicar APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk KINETIC.apk
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest KINETIC.apk --title "KINETIC · APK Android" \
+            --notes "APK de la app compilado desde la rama main ($GITHUB_SHA). Instalable en Android (permite instalar apps de origen desconocido)."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KINETIC-apk
+          path: KINETIC.apk
