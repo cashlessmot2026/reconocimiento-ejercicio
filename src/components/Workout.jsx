@@ -6,6 +6,7 @@ import { drawAngle, drawSkeleton, drawThermal, drawVideo, frameRect, projector }
 import { usePoseCamera } from '../lib/usePoseCamera'
 import { GlowButton } from './ui'
 import BodyMap from './BodyMap'
+import GhostFigure from './GhostFigure'
 import { BigCount, CamOverlays, Metric, PerfBadge, TopControls, round, speak, useCountdown } from './StageParts'
 
 const PHASE_COLOR = {
@@ -46,6 +47,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
   const [hud, setHud] = useState(null)
   const [log, setLog] = useState([])
   const [repFlash, setRepFlash] = useState(null)
+  const [showDemo, setShowDemo] = useState(true)
   statusRef.current = status
 
   const doneReps = log.reduce((a, r) => a + r.reps, 0) + (hud?.reps || 0)
@@ -197,6 +199,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
 
         <TopControls cam={cam} sound={sound} setSound={setSound} onExit={exit} extra={<>
           <GlowButton variant="icon ghost" title="Mapa de calor" onClick={() => setShowHeat((v) => !v)} style={{ opacity: showHeat ? 1 : 0.5 }}>🔥</GlowButton>
+          {ex.ghost && <GlowButton variant="icon ghost" title="Ver cómo se hace" onClick={() => setShowDemo((v) => !v)} style={{ opacity: showDemo ? 1 : 0.5 }}>🎬</GlowButton>}
           <GlowButton variant="icon ghost" title="Encuadre" onClick={() => setFit((f) => (f === 'cover' ? 'contain' : 'cover'))}>{fit === 'cover' ? '⤢' : '⤡'}</GlowButton>
         </>} />
 
@@ -212,11 +215,18 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
               <div className="muted mono" style={{ fontSize: 12, lineHeight: 1.6 }}>
                 subida {s.lastRep.up}s · bajada {s.lastRep.down}s<br />
                 pico {s.lastRep.peak_speed} m/s · ROM {s.lastRep.rom}°<br />
-                balanceo {s.lastRep.sway_cm} cm · técnica {s.lastRep.form}
+                balanceo {s.lastRep.sway_cm} cm · técnica {s.lastRep.form}{s.lastRep.match != null && <> · similitud {s.lastRep.match}%</>}
               </div>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {ex.ghost && showDemo && status !== 'ready' && (
+          <div className="demo-pip card">
+            <GhostFigure ghost={ex.ghost} size={96} highlight={ex.landmarks_l} />
+            <small>Así se hace</small>
+          </div>
+        )}
 
         <div className="hud-bottom">
           <div className="card trace">
@@ -245,6 +255,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
                 <b style={{ fontSize: 20 }}>{ex.name}{load ? ` · +${load} kg` : ''}</b>
                 <p className="muted" style={{ margin: '6px 0 0' }}>{ex.camera_hint}</p>
                 <p style={{ margin: '6px 0 0', color: accent }}>{ex.cue}</p>
+                {ex.ghost && <div style={{ display: 'grid', placeItems: 'center', marginTop: 8 }}><GhostFigure ghost={ex.ghost} size={150} highlight={ex.landmarks_l} /></div>}
               </div>
             </motion.div>
           )}
@@ -264,6 +275,12 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
           <h2 style={{ margin: '4px 0' }}>{ex.icon} {ex.name}</h2>
           <div className="muted" style={{ fontSize: 13 }}>{ex.cue}</div>
         </div>
+        {ex.ghost && (
+          <div className="card" style={{ padding: 12, display: 'grid', placeItems: 'center', gap: 4 }}>
+            <GhostFigure ghost={ex.ghost} size={150} highlight={ex.landmarks_l} />
+            <div className="muted" style={{ fontSize: 12 }}>Así se hace · {ex.tempo ? `${ex.tempo.up}s sube / ${ex.tempo.down}s baja` : 'demostración del coach'}</div>
+          </div>
+        )}
         <div className="card" style={{ padding: 14, display: 'grid', placeItems: 'center' }}>
           <BodyMap groups={groups} loads={groupLoads} size={180} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', marginTop: 8 }}>

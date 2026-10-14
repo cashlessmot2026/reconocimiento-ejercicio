@@ -2,6 +2,8 @@
 // Cada ejercicio (desde la BD) define el triángulo A-B-C de landmarks,
 // el ángulo de reposo (rest_angle) y el de máxima contracción (peak_angle).
 
+import { curveMatch } from './curve'
+
 const TORSO_M = 0.5 // longitud aproximada hombro→cadera (m) para escalar velocidad
 
 export function angleAt(a, b, c) {
@@ -48,6 +50,7 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
   let tiltSum = 0, tiltN = 0
   let bestSpeeds = []
   let restExtreme = null // ángulo más cercano al reposo antes de iniciar la rep
+  let curve = []         // muestras {t, p} de la repetición en curso (para compararla con la demostración)
 
   function update(lm, t) {
     if (!lm) {
@@ -119,7 +122,7 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
           s.phase = 'rest'
           if (restExtreme == null || Math.abs(ema - peak) > Math.abs(restExtreme - peak)) restExtreme = ema
         }
-        else if (s.phase === 'rest') startRep(t)
+        else if (s.phase === 'rest') startRep(t, p)
         break
       case 'concentric':
         if (p >= 0.85) { s.phase = 'hold'; peakReached = true; peakAt = t }
@@ -130,17 +133,19 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
         break
       case 'eccentric':
         if (p >= 0.85) s.phase = 'hold'
-        else if (p < 0.2) finishRep(t, torso)
+        else if (p < 0.2) finishRep(t, torso, p)
         break
     }
 
+    if ((s.phase === 'concentric' || s.phase === 'hold' || s.phase === 'eccentric') && (!curve.length || curve[curve.length - 1].t !== t)) curve.push({ t, p })
     s.trace.push(p)
     if (s.trace.length > 240) s.trace.shift()
     return s
   }
 
-  function startRep(t) {
+  function startRep(t, p) {
     s.phase = 'concentric'
+    curve = [{ t, p }]
     repStart = t
     peakReached = false
     minA = Math.min(Infinity, restExtreme ?? Infinity); maxA = Math.max(-Infinity, restExtreme ?? -Infinity); maxP = 0
@@ -149,9 +154,10 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
     s.peakSpeedRep = 0
   }
 
-  function finishRep(t, torso) {
+  function finishRep(t, torso, p) {
     s.phase = 'rest'
     if (!peakReached) return
+    if (p != null && curve.length && curve[curve.length - 1].t !== t) curve.push({ t, p })
     s.reps++
     const up = (peakAt - repStart) / 1000
     const down = (t - peakAt) / 1000
@@ -165,11 +171,17 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
     const romScore = Math.min(1, maxP) * 50
     const tempoScore = Math.min(1, down / Math.max(0.4, up)) * 25
     const swayScore = Math.max(0, 1 - sway / 25) * 25
-    const form = Math.round(romScore + tempoScore + swayScore)
+    let form = Math.round(romScore + tempoScore + swayScore)
+    // Si el ejercicio fue aprendido de una demostración, la similitud de la curva también cuenta
+    const match = exercise.template ? curveMatch(exercise.template, curve) : null
+    if (match != null) form = Math.round(0.7 * form + 0.3 * match)
+    const refTotal = Number(exercise.tempo?.total) || null
     const rep = {
       n: s.reps, up: +up.toFixed(2), down: +down.toFixed(2), rom: +rom.toFixed(1),
       min: +minA.toFixed(1), max: +maxA.toFixed(1), peak_speed: +s.peakSpeedRep.toFixed(2),
       sway_cm: +sway.toFixed(1), form, fatigue: +fatigue.toFixed(1), at: Date.now(),
+      ...(match != null ? { match } : {}),
+      ...(refTotal ? { tempo_ratio: +((up + down) / refTotal).toFixed(2) } : {}),
     }
     s.repLog.push(rep)
     s.lastRep = rep
@@ -188,6 +200,7 @@ export function createTracker(exercise, { aspect = 1 } = {}) {
       peak_speed: log.length ? Math.max(...log.map((r) => r.peak_speed)) : null,
       fatigue_pct: s.fatigue,
       form_score: log.length ? s.form : null,
+      avg_match: log.some((r) => r.match != null) ? Math.round(log.filter((r) => r.match != null).reduce((a, r) => a + r.match, 0) / log.filter((r) => r.match != null).length) : null,
       torso_tilt: tiltN ? tiltSum / tiltN : null,
       rep_log: log,
     }

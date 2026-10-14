@@ -117,7 +117,7 @@ export default function App() {
         )}
         {view === 'admin' && adminPin && (
           <motion.main key="admin" className="container" style={{ maxWidth: 1500 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <Admin boot={boot} pin={adminPin} notify={notify} onLock={() => { setAdminPin(null); setView('home') }} />
+            <Admin boot={boot} pin={adminPin} notify={notify} onReloadBoot={() => loadBootstrap().then(setBoot).catch(() => {})} onLock={() => { setAdminPin(null); setView('home') }} />
           </motion.main>
         )}
       </AnimatePresence>

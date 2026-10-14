@@ -78,4 +78,7 @@ export const api = {
     }),
   adminSetWeight: (pin, code, kg) => rpc('ej_admin_set_client_weight', { p_pin: pin, p_code: code, p_kg: kg }),
   adminRemoveRoutine: (pin, id) => rpc('ej_admin_remove_routine', { p_pin: pin, p_id: id }),
+  adminSaveExercise: (pin, data) => rpc('ej_admin_save_exercise', { p_pin: pin, p_data: data }),
+  adminSetExerciseActive: (pin, id, on) => rpc('ej_admin_set_exercise_active', { p_pin: pin, p_id: id, p_active: on }),
+  adminClearDemo: (pin, id) => rpc('ej_admin_clear_demo', { p_pin: pin, p_id: id }),
 }

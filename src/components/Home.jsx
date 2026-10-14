@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import BodyMap from './BodyMap'
 import AssessmentForm from './AssessmentForm'
+import GhostFigure from './GhostFigure'
 import { BMI_COLOR } from '../lib/body'
 
 const toItem = (ex, r) => ({
@@ -319,6 +320,18 @@ function ExerciseConfig({ exercise, groups, bodyKg, onClose, onStart, onSave }) 
               <span key={m.group} className="chip"><span className="dot" style={{ background: groups[m.group]?.color }} />{groups[m.group]?.name} {m.pct}%</span>
             ))}
           </div>
+          {exercise.ghost && (
+            <div className="demo-card">
+              <GhostFigure ghost={exercise.ghost} size={120} highlight={exercise.landmarks_l} />
+              <div>
+                <b>Así se hace</b>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Demostración del coach{exercise.tempo ? ` · ${exercise.tempo.up}s subida, ${exercise.tempo.down}s bajada` : ''}.
+                  El sistema compara cada repetición tuya con esta forma.
+                </div>
+              </div>
+            </div>
+          )}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div className="field"><label>{boxing ? 'Rounds' : 'Series'}</label><Stepper value={sets} onChange={setSets} max={boxing ? 12 : 20} /></div>
             {boxing

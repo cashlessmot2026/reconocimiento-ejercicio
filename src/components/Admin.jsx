@@ -8,13 +8,14 @@ import { api } from '../lib/api'
 import { GlowButton, Stepper, fmtDate } from './ui'
 import BodyMap from './BodyMap'
 import ProgressSection, { RangeBar, emptyRange } from './Progress'
+import ExerciseLibrary from './ExerciseLibrary'
 
 const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
 
 const AX = { stroke: '#8b97b5', fontSize: 11, tickLine: false, axisLine: false }
 const TT = { contentStyle: { background: '#0f1528', border: '1px solid rgba(148,163,184,.2)', borderRadius: 10 }, labelStyle: { color: '#e8eefc' } }
 
-export default function Admin({ boot, pin, notify, onLock }) {
+export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
   const { exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [overview, setOverview] = useState(null)
@@ -25,6 +26,7 @@ export default function Admin({ boot, pin, notify, onLock }) {
   const [range, setRange] = useState(emptyRange)
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
+  const [libOpen, setLibOpen] = useState(false)
 
   const loadAll = useCallback(async () => {
     try {
@@ -59,6 +61,7 @@ export default function Admin({ boot, pin, notify, onLock }) {
           <span className="muted">Analítica de clientes y progreso semanal</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <GlowButton variant="sm solid" onClick={() => setLibOpen(true)}>🎓 Ejercicios</GlowButton>
           <GlowButton variant="sm ghost" onClick={() => { loadAll(); loadDetail(sel) }}>↻ Actualizar</GlowButton>
           <GlowButton variant="sm hot" onClick={onLock}>🔒 Bloquear</GlowButton>
         </div>
@@ -121,6 +124,7 @@ export default function Admin({ boot, pin, notify, onLock }) {
           {!detail && <div className="card" style={{ padding: 24 }}><span className="muted">Selecciona un cliente.</span></div>}
         </div>
       </div>
+      <ExerciseLibrary open={libOpen} onClose={() => setLibOpen(false)} boot={boot} pin={pin} notify={notify} onChanged={() => onReloadBoot?.()} />
     </>
   )
 }
