@@ -6,6 +6,7 @@ import { drawSkeleton, drawThermal, drawVideo, frameRect, projector } from '../l
 import { usePoseCamera } from '../lib/usePoseCamera'
 import { GlowButton } from './ui'
 import BodyMap from './BodyMap'
+import { useWakeLock } from '../lib/display'
 import { BigCount, CamOverlays, Metric, PerfBadge, TopControls, round, speak, useCountdown } from './StageParts'
 
 const MODE_LABEL = { shadow: 'Sombra libre', combos: 'Combos guiados', targets: 'Dianas', speed: 'Velocidad' }
@@ -40,6 +41,7 @@ export default function Boxing({ boot, client, item, autoStart, isLast, nextName
   const [callout, setCallout] = useState(null)
   const [log, setLog] = useState([])
   statusRef.current = status
+  useWakeLock(true)
 
   // ---------- Ejercicios guiados ----------
   const nextCombo = (now) => {
@@ -265,7 +267,7 @@ export default function Boxing({ boot, client, item, autoStart, isLast, nextName
           </div>
         </div>
 
-        <TopControls cam={cam} sound={sound} setSound={setSound} onExit={exit} extra={
+        <TopControls cam={cam} sound={sound} setSound={setSound} onExit={exit} notify={notify} extra={
           <GlowButton variant="icon ghost" title={`Sensibilidad ${sens === 1 ? 'normal' : sens > 1 ? 'alta' : 'baja'}`}
             onClick={() => { const n = sens === 1 ? 1.25 : sens > 1 ? 0.8 : 1; setSens(n); notify(`Sensibilidad ${n === 1 ? 'normal' : n > 1 ? 'alta' : 'baja'}`) }}>
             {sens === 1 ? '◐' : sens > 1 ? '●' : '○'}

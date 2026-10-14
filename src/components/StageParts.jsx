@@ -1,6 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { GlowButton } from './ui'
+import { TvSheet } from './DisplayControls'
+import { useFullscreen } from '../lib/display'
 
 export function speak(text, on) {
   if (!on || !('speechSynthesis' in window)) return
@@ -11,16 +13,55 @@ export function speak(text, on) {
   } catch { /* sin voz */ }
 }
 
-export function TopControls({ cam, sound, setSound, onExit, extra }) {
+export function TopControls({ cam, sound, setSound, onExit, extra, notify }) {
+  const [menu, setMenu] = useState(false)
+  const [tv, setTv] = useState(false)
+  const fs = useFullscreen()
+  const rear = cam.facing === 'environment'
+
+  const run = async (fn) => { const r = await fn(); if (r?.message) notify?.(r.message) }
+  const toggleFs = async () => { if (!(await fs.toggle())) notify?.('El navegador no permitió la pantalla completa') }
+
   return (
     <div className="hud-tr">
-      {extra}
-      <GlowButton variant="icon ghost" title="Cambiar cámara" onClick={cam.flip}>🔄</GlowButton>
-      <GlowButton variant="icon ghost" title={cam.model === 'lite' ? 'Modo rápido (toca para preciso)' : 'Modo preciso (toca para rápido)'} onClick={cam.switchModel}>
-        {cam.model === 'lite' ? '⚡' : '🎯'}
+      <GlowButton variant="icon ghost" title={rear ? 'Cámara trasera · toca para usar la frontal' : 'Cámara frontal · toca para usar la trasera'} onClick={() => run(cam.flip)}>
+        {rear ? '📷' : '🤳'}
       </GlowButton>
-      <GlowButton variant="icon ghost" title="Voz" onClick={() => setSound((v) => !v)}>{sound ? '🔊' : '🔇'}</GlowButton>
+      {fs.supported && (
+        <GlowButton variant="icon ghost" title={fs.on ? 'Salir de pantalla completa' : 'Pantalla completa'} onClick={toggleFs}>{fs.on ? '⤓' : '⛶'}</GlowButton>
+      )}
+      <GlowButton variant="icon ghost" title="Más opciones" onClick={() => setMenu((m) => !m)} style={{ opacity: menu ? 1 : 0.9 }}>⋯</GlowButton>
       <GlowButton variant="icon hot" title="Salir" onClick={onExit}>✕</GlowButton>
+
+      <AnimatePresence>
+        {menu && (
+          <motion.div className="hud-menu card" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+            {extra && <div className="menu-row">{extra}</div>}
+            <button className="menu-item" onClick={() => run(cam.switchModel)}>
+              <span>{cam.model === 'lite' ? '⚡' : '🎯'}</span> Análisis: {cam.model === 'lite' ? 'rápido' : 'preciso'}
+            </button>
+            <button className="menu-item" onClick={() => setSound((v) => !v)}>
+              <span>{sound ? '🔊' : '🔇'}</span> Voz: {sound ? 'activada' : 'desactivada'}
+            </button>
+            <button className="menu-item" onClick={() => { setTv(true); setMenu(false) }}>
+              <span>📺</span> Pantalla y TV
+            </button>
+            {cam.cameras?.length > 1 && (
+              <div className="menu-cams">
+                <div className="muted" style={{ fontSize: 11, letterSpacing: '.1em', padding: '6px 12px 2px' }}>CÁMARAS</div>
+                {cam.cameras.map((c) => (
+                  <button key={c.id} className={`menu-item ${c.id === cam.activeId ? 'on' : ''}`} onClick={() => { run(() => cam.selectCamera(c.id)); setMenu(false) }}>
+                    <span>{c.facing === 'environment' ? '📷' : c.facing === 'user' ? '🤳' : '🎥'}</span>
+                    <span className="menu-cam-label">{c.label}</span>
+                    {c.id === cam.activeId && <b>✓</b>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <TvSheet open={tv} onClose={() => setTv(false)} notify={notify} />
     </div>
   )
 }

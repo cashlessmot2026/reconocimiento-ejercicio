@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { JOINTS, analyzeDemo, packFrame } from '../lib/learn'
 import { drawSkeleton, drawVideo, frameRect, projector } from '../lib/render'
 import { usePoseCamera } from '../lib/usePoseCamera'
+import { useWakeLock } from '../lib/display'
 import GhostFigure from './GhostFigure'
 import { GlowButton } from './ui'
 
@@ -236,6 +237,8 @@ function RecorderStage({ onDone, onCancel }) {
   const [count, setCount] = useState(5)
   const [secs, setSecs] = useState(0)
   const [seen, setSeen] = useState(false)
+  const [note, setNote] = useState('')
+  useWakeLock(true)
 
   const cam = usePoseCamera({
     smoothing: { minCutoff: 1.2, beta: 8 },
@@ -286,6 +289,7 @@ function RecorderStage({ onDone, onCancel }) {
         <canvas ref={cam.canvasRef} />
         <div className="rec-top">
           <span className={`chip ${seen ? 'ok' : ''}`}>{seen ? '✓ Cuerpo visible' : '⚠ Colócate de cuerpo completo'}</span>
+          {note && phase !== 'rec' && <span className="chip">{note}</span>}
           {phase === 'rec' && <span className="chip rec"><i className="rec-dot" /> {secs.toFixed(0)} s</span>}
         </div>
         {phase === 'count' && <div className="rec-count mono">{count}</div>}
@@ -298,7 +302,7 @@ function RecorderStage({ onDone, onCancel }) {
       </p>
       <div className="rec-actions">
         <GlowButton variant="ghost" onClick={onCancel} disabled={phase !== 'idle'}>← Atrás</GlowButton>
-        <GlowButton variant="icon ghost" onClick={cam.flip} disabled={phase !== 'idle'} title="Cambiar cámara">🔄</GlowButton>
+        <GlowButton variant="icon ghost" onClick={async () => { const r = await cam.flip(); setNote(r?.message || '') }} disabled={phase !== 'idle'} title="Cambiar cámara">{cam.facing === 'environment' ? '📷' : '🤳'}</GlowButton>
         {phase === 'idle' && <GlowButton variant="solid hot" disabled={cam.status !== 'ready' || !seen} onClick={() => { setCount(5); setPhase('count') }}>● Grabar (5 s de preparación)</GlowButton>}
         {phase === 'count' && <GlowButton variant="ghost" onClick={() => setPhase('idle')}>Cancelar</GlowButton>}
         {phase === 'rec' && <GlowButton variant="solid" disabled={secs < MIN_SECS} onClick={stop}>■ Detener y analizar</GlowButton>}

@@ -5,6 +5,7 @@ import { loadPoseLandmarker } from './lib/pose'
 import { GlowButton, Toast } from './components/ui'
 import Home from './components/Home'
 import PinModal from './components/PinModal'
+import { TopbarDisplay } from './components/DisplayControls'
 
 const Session = lazy(() => import('./components/Session'))
 const Admin = lazy(() => import('./components/Admin'))
@@ -89,6 +90,7 @@ export default function App() {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <TopbarDisplay notify={notify} />
           {view === 'admin' && (
             <GlowButton variant="sm ghost" onClick={() => setView('home')}>← Salir del panel</GlowButton>
           )}

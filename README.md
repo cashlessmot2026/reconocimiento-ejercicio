@@ -37,6 +37,15 @@ Puede crear un ejercicio nuevo o grabar la demostración de uno existente. Duran
 se compara con la curva modelo (similitud 0-100) y esa similitud cuenta en la puntuación de técnica.
 No se guarda video: solo los puntos del cuerpo (`ej_exercises.ghost`, `template`, `tempo`).
 
+## Pantallas, TV y cámara
+- **Adaptable**: teléfonos, tabletas, PC y televisores. En pantallas de 1700 px o más (y 2400 / 3200 px) la interfaz se agranda sola;
+  «Modo TV» (📺) la agranda siempre. Foco visible para control remoto / teclado.
+- **Pantalla completa** (⛶) y, en PC con otra pantalla conectada por HDMI, envío de la app a esa pantalla (Window Management API).
+  La pantalla se mantiene encendida durante el ejercicio (Wake Lock).
+- **Transmitir al TV**: guía en 📺 (Chromecast, Windows+K, AirPlay, Smart View). El navegador no puede iniciar la transmisión por sí mismo.
+- **Cámara frontal / trasera**: botón 🤳/📷 en el ejercicio, lista de todas las cámaras en «⋯», y preferencia recordada
+  (también en la tarjeta del cliente). Si el equipo solo tiene una cámara, el botón invierte la vista espejo.
+
 ## Infraestructura
 - `supabase/schema.sql` + `supabase/migration_002.sql` — tablas `ej_*`, RLS, funciones RPC (el PIN se guarda hasheado con bcrypt).
 - Despliegue automático a **GitHub Pages** con GitHub Actions (`.github/workflows/deploy.yml`).

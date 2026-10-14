@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client'
 import { registerSW } from 'virtual:pwa-register'
 import App from './App.jsx'
 import './styles.css'
+import { applyTvMode, prefs } from './lib/display'
+
+applyTvMode(prefs.get('kinetic.tv', ''))
 
 registerSW({ immediate: true })
 

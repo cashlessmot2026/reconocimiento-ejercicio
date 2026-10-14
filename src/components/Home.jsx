@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import BodyMap from './BodyMap'
 import AssessmentForm from './AssessmentForm'
+import { camPref } from '../lib/display'
 import GhostFigure from './GhostFigure'
 import { BMI_COLOR } from '../lib/body'
 
@@ -183,6 +184,7 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
   const [busy, setBusy] = useState(false)
   const [weight, setWeight] = useState('')
   const [assessOpen, setAssessOpen] = useState(false)
+  const [camP, setCamP] = useState(() => camPref.get())
   const refs = [useRef(), useRef(), useRef(), useRef()]
 
   const submit = async (code) => {
@@ -229,6 +231,14 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
           <GlowButton variant="sm" disabled={!weight} onClick={async () => {
             try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
           }}>Guardar</GlowButton>
+        </div>
+        <div className="profile-row">
+          <label className="muted" style={{ fontSize: 12 }}>Cámara para entrenar</label>
+          <div className="seg">
+            {[['user', '🤳 Frontal'], ['environment', '📷 Trasera']].map(([v, l]) => (
+              <button key={v} type="button" className={camP === v ? 'on' : ''} onClick={() => { camPref.set(v); setCamP(v) }}>{l}</button>
+            ))}
+          </div>
         </div>
         {client.assessment && (
           <div className="chip" style={{ alignSelf: 'flex-start', gap: 8 }}>

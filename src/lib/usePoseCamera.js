@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { defaultModel, isMobile, loadPoseLandmarker } from './pose'
 import { createLandmarkFilter } from './filters'
 import { cameraError, openCamera } from './camera'
+import { camPref } from './display'
+
+const guessFacing = (label = '') =>
+  /back|rear|trasera|posterior|environment|world/i.test(label) ? 'environment'
+    : /front|frontal|user|selfie|facetime|delantera/i.test(label) ? 'user' : ''
 
 /**
  * Cámara + detector de pose con el bucle más rápido disponible:
@@ -27,28 +32,54 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
 
   const [status, setStatus] = useState('loading') // loading | ready | error
   const [error, setError] = useState('')
-  const [facing, setFacing] = useState('user')
+  const [facing, setFacing] = useState(() => camPref.get())
+  const [cameras, setCameras] = useState([]) // [{ id, label, facing }]
+  const [activeId, setActiveId] = useState('')
   const [model, setModel] = useState(defaultModel())
   const [fps, setFps] = useState(0)
   const [delegate, setDelegate] = useState('')
   const [latency, setLatency] = useState(0)
 
-  const startCamera = useCallback(async (mode) => {
-    streamRef.current?.getTracks().forEach((t) => t.stop())
+  const refreshDevices = useCallback(async () => {
+    try {
+      const list = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput' && d.deviceId)
+      setCameras(list.map((d, i) => ({ id: d.deviceId, label: d.label || `Cámara ${i + 1}`, facing: guessFacing(d.label) })))
+    } catch { /* sin lista de cámaras */ }
+  }, [])
+
+  /**
+   * Abre una cámara por orientación (frontal/trasera) o por id.
+   * Con `exact` no hay reintentos: si esa cámara no existe falla, para poder buscar otra.
+   * Devuelve lo que el dispositivo declara (facingMode / deviceId).
+   */
+  const startCamera = useCallback(async (mode, deviceId, exact = false) => {
+    streamRef.current?.getTracks().forEach((t) => t.stop()) // muchos celulares no abren dos cámaras a la vez
     const portrait = window.innerHeight > window.innerWidth
-    const stream = await openCamera({
-      facingMode: mode,
+    const size = {
       // En celular se pide menos resolución y 30 fps: el modelo trabaja con una imagen pequeña
       // y 60 fps solo añade carga que el teléfono no alcanza a procesar.
       width: { ideal: isMobile() ? (portrait ? 360 : 640) : (portrait ? 540 : 960) },
       height: { ideal: isMobile() ? (portrait ? 640 : 360) : (portrait ? 960 : 540) },
       frameRate: isMobile() ? { ideal: 30, max: 30 } : { ideal: 60, min: 24 },
-    })
+    }
+    const wanted = deviceId
+      ? { ...size, deviceId: { exact: deviceId } }
+      : { ...size, facingMode: exact ? { exact: mode } : mode }
+    const stream = exact || deviceId
+      ? await navigator.mediaDevices.getUserMedia({ audio: false, video: wanted })
+      : await openCamera(wanted)
     streamRef.current = stream
     const v = videoRef.current
     v.srcObject = stream
     await v.play()
-  }, [])
+    const st = stream.getVideoTracks()[0]?.getSettings?.() || {}
+    setActiveId(st.deviceId || '')
+    refreshDevices()
+    return {
+      reported: st.facingMode === 'user' || st.facingMode === 'environment' ? st.facingMode : '',
+      deviceId: st.deviceId || '',
+    }
+  }, [refreshDevices])
 
   // Inicialización
   useEffect(() => {
@@ -56,8 +87,9 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     ;(async () => {
       try {
         if (!navigator.mediaDevices?.getUserMedia) throw new Error('Este navegador no permite usar la cámara (se requiere HTTPS).')
-        const [lm] = await Promise.all([loadPoseLandmarker(model), startCamera(facing)])
+        const [lm, cam] = await Promise.all([loadPoseLandmarker(model), startCamera(facing)])
         if (!alive) return
+        if (cam.reported && cam.reported !== facing) setFacing(cam.reported)
         lmRef.current = lm
         setDelegate(lm.delegateUsed || '')
         setStatus('ready')
@@ -131,11 +163,48 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     return () => ro.disconnect()
   }, [])
 
+  /** Cambia entre cámara frontal y trasera. Devuelve { ok, message? } para avisar al usuario. */
   const flip = useCallback(async () => {
-    const next = facing === 'user' ? 'environment' : 'user'
-    await startCamera(next)
-    setFacing(next)
-  }, [facing, startCamera])
+    const target = facing === 'user' ? 'environment' : 'user'
+    const name = target === 'environment' ? 'trasera' : 'frontal'
+    const current = streamRef.current?.getVideoTracks()[0]?.getSettings?.().deviceId
+    try {
+      // 1) La cámara con la orientación pedida (celulares)
+      const r = await startCamera(target, undefined, true)
+      const f = r.reported || target
+      setFacing(f); camPref.set(f)
+      return { ok: true, message: `Cámara ${f === 'environment' ? 'trasera' : 'frontal'}` }
+    } catch {
+      // No existe: volver a la anterior y buscar otra cámara distinta
+      try { await startCamera(facing) } catch { /* se informa abajo */ }
+      const other = cameras.find((c) => c.id !== current && (!c.facing || c.facing === target)) || cameras.find((c) => c.id !== current)
+      if (other) {
+        try {
+          const r = await startCamera(target, other.id)
+          const f = r.reported || other.facing || target
+          setFacing(f); camPref.set(f)
+          return { ok: true, message: `Cámara: ${other.label}` }
+        } catch { try { await startCamera(facing) } catch { /* sin cámara */ } }
+      }
+      // 2) Una sola cámara (PC): solo se invierte el espejo
+      setFacing(target); camPref.set(target)
+      return { ok: true, message: target === 'user' ? 'Vista espejo activada' : 'Vista espejo desactivada (este equipo tiene una sola cámara)' }
+    }
+  }, [facing, startCamera, cameras])
+
+  const selectCamera = useCallback(async (id) => {
+    const cam = cameras.find((c) => c.id === id)
+    if (!cam) return { ok: false, message: 'Cámara no disponible' }
+    try {
+      const r = await startCamera(cam.facing || facing, id)
+      const f = r.reported || cam.facing || facing
+      setFacing(f); camPref.set(f)
+      return { ok: true, message: `Cámara: ${cam.label}` }
+    } catch {
+      try { await startCamera(facing) } catch { /* sin cámara */ }
+      return { ok: false, message: 'No se pudo abrir esa cámara' }
+    }
+  }, [cameras, facing, startCamera])
 
   const switchModel = useCallback(async () => {
     const next = model === 'lite' ? 'full' : 'lite'
@@ -148,5 +217,5 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
 
   const stop = useCallback(() => streamRef.current?.getTracks().forEach((t) => t.stop()), [])
 
-  return { videoRef, canvasRef, vpRef, status, error, facing, flip, model, switchModel, fps, latency, delegate, stop }
+  return { videoRef, canvasRef, vpRef, status, error, facing, flip, selectCamera, cameras, activeId, model, switchModel, fps, latency, delegate, stop }
 }

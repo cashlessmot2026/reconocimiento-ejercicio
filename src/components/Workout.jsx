@@ -7,6 +7,7 @@ import { usePoseCamera } from '../lib/usePoseCamera'
 import { GlowButton } from './ui'
 import BodyMap from './BodyMap'
 import GhostFigure from './GhostFigure'
+import { useWakeLock } from '../lib/display'
 import { BigCount, CamOverlays, Metric, PerfBadge, TopControls, round, speak, useCountdown } from './StageParts'
 
 const PHASE_COLOR = {
@@ -49,6 +50,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
   const [repFlash, setRepFlash] = useState(null)
   const [showDemo, setShowDemo] = useState(true)
   statusRef.current = status
+  useWakeLock(true)
 
   const doneReps = log.reduce((a, r) => a + r.reps, 0) + (hud?.reps || 0)
   const heat = Math.min(1, 0.12 + (doneReps / (item.sets * item.reps)) * 0.75 + (hud?.fatigue || 0) / 400 + load / 200)
@@ -197,7 +199,7 @@ export default function Workout({ boot, client, item, autoStart, isLast, nextNam
           </div>
         </div>
 
-        <TopControls cam={cam} sound={sound} setSound={setSound} onExit={exit} extra={<>
+        <TopControls cam={cam} sound={sound} setSound={setSound} onExit={exit} notify={notify} extra={<>
           <GlowButton variant="icon ghost" title="Mapa de calor" onClick={() => setShowHeat((v) => !v)} style={{ opacity: showHeat ? 1 : 0.5 }}>🔥</GlowButton>
           {ex.ghost && <GlowButton variant="icon ghost" title="Ver cómo se hace" onClick={() => setShowDemo((v) => !v)} style={{ opacity: showDemo ? 1 : 0.5 }}>🎬</GlowButton>}
           <GlowButton variant="icon ghost" title="Encuadre" onClick={() => setFit((f) => (f === 'cover' ? 'contain' : 'cover'))}>{fit === 'cover' ? '⤢' : '⤡'}</GlowButton>
