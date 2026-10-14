@@ -28,6 +28,15 @@ inclinación del torso y mostrar un **mapa de calor muscular** sobre el cuerpo.
 - **Progreso**: % de cambio entre evaluaciones, % por día, % acumulado y % de avance hacia el peso meta;
   entrenamiento por día con variación porcentual. El coach lo filtra por **rango de fechas**.
 
+## Entrenar ejercicios (demostración del coach)
+En el panel: **🎓 Ejercicios**. El coach graba una demostración (3 a 8 repeticiones) y el sistema aprende, sin enviar imágenes:
+- la **articulación** que define el movimiento (rodilla, codo, cadera u hombro) y los ángulos de **reposo / contracción**,
+- la **curva modelo** de una repetición y el **ritmo** (subida / bajada),
+- un **esqueleto animado** («Así se hace») que ve el cliente antes y durante la serie.
+Puede crear un ejercicio nuevo o grabar la demostración de uno existente. Durante la serie, cada repetición del cliente
+se compara con la curva modelo (similitud 0-100) y esa similitud cuenta en la puntuación de técnica.
+No se guarda video: solo los puntos del cuerpo (`ej_exercises.ghost`, `template`, `tempo`).
+
 ## Infraestructura
 - `supabase/schema.sql` + `supabase/migration_002.sql` — tablas `ej_*`, RLS, funciones RPC (el PIN se guarda hasheado con bcrypt).
 - Despliegue automático a **GitHub Pages** con GitHub Actions (`.github/workflows/deploy.yml`).
