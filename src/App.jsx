@@ -53,11 +53,13 @@ export default function App() {
   // Entrada: por rostro → acceso directo. Por código → si es la primera vez, registro facial
   // obligatorio (una sola vez); si ya tiene rostro, verificación 1:1 contra ese código.
   const login = useCallback(async (code, via) => {
-    const c = await api.enterClient(code)
-    if (via === 'face') { setClient(c); return }
+    const [c, face] = await Promise.all([api.enterClient(code), api.faceConfig().catch(() => boot?.face || {})])
+    setBoot((b) => ({ ...b, face }))
+    // Reconocimiento facial desactivado por el coach → entrada directa con el código
+    if (via === 'face' || face.enabled === false) { setClient(c); return }
     setClient(null)
     setGate({ mode: c.face_samples > 0 ? 'verify' : 'enroll', client: c })
-  }, [])
+  }, [boot])
 
   const passGate = useCallback(async (msg) => {
     const c = await api.enterClient(gate.client.code)
@@ -128,6 +130,7 @@ export default function App() {
               client={client}
               onEnter={refreshClient}
               onLogin={login}
+              faceEnabled={boot.face?.enabled !== false}
               onLogout={() => setClient(null)}
               onStart={(p) => { setPlan(p); setView('workout') }}
               notify={notify}
@@ -136,7 +139,7 @@ export default function App() {
         )}
         {view === 'admin' && adminPin && (
           <motion.main key="admin" className="container" style={{ maxWidth: 1500 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <Admin boot={boot} pin={adminPin} notify={notify} onLock={() => { setAdminPin(null); setView('home') }} />
+            <Admin boot={boot} pin={adminPin} notify={notify} onFaceConfig={(face) => setBoot((b) => ({ ...b, face }))} onLock={() => { setAdminPin(null); setView('home') }} />
           </motion.main>
         )}
       </AnimatePresence>

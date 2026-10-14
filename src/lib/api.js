@@ -56,6 +56,12 @@ export const api = {
   faceIdentify: (descs) => rpc('ej_face_identify', { p_descs: descs }),
   faceEnroll: (code, samples) => rpc('ej_face_enroll', { p_code: code, p_samples: samples }),
   faceVerify: (code, descs) => rpc('ej_face_verify', { p_code: code, p_descs: descs }),
+  faceConfig: async () => {
+    const { data, error } = await db().from('ej_config').select('value').eq('key', 'face').maybeSingle()
+    if (error) throw new Error(error.message)
+    return data?.value ?? {}
+  },
+  adminSetFaceEnabled: (pin, on) => rpc('ej_admin_set_face_enabled', { p_pin: pin, p_enabled: on }),
   removeRoutine: (code, id) => rpc('ej_client_remove_routine', { p_code: code, p_id: id }),
   saveSet: async (row) => {
     const { error } = await db().from('ej_sets').insert(row)

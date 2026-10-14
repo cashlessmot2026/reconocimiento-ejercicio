@@ -282,6 +282,14 @@ th { color: var(--muted); font-weight: 600; font-size: 11px; letter-spacing: 0.0
 .link-btn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 13px; padding: 6px; }
 .link-btn:hover { color: var(--text); }
 
+/* ---------- Interruptor ---------- */
+.switch { display: inline-flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.04); cursor: pointer; font-size: 13px; }
+.switch:disabled { opacity: .6; cursor: wait; }
+.switch-track { width: 44px; height: 24px; border-radius: 999px; background: rgba(255,255,255,.12); display: flex; align-items: center; padding: 3px; justify-content: flex-start; transition: background .25s; }
+.switch.on .switch-track { background: linear-gradient(135deg, var(--ok), var(--accent)); justify-content: flex-end; box-shadow: 0 0 16px -4px var(--ok); }
+.switch-thumb { width: 18px; height: 18px; border-radius: 50%; background: #fff; display: block; }
+.face-fps { position: absolute; right: 8px; top: 8px; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.5); color: var(--muted); transform: scaleX(1); }
+
 /* ---------- Carga ---------- */
 .load-badge { background: linear-gradient(135deg, #fbbf24, #f97316) !important; }
 

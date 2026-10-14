@@ -1,32 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
-import { analyzeFace, cameraError, descDistance, loadFace, openCamera } from '../lib/face'
+import { cameraError, describeFace, descDistance, loadFace, openCamera, trackFace } from '../lib/face'
 import { GlowButton } from './ui'
 
 /*
  * Modos:
- *  - enroll  (obligatorio la primera vez, una sola vez): anillo de 11 ángulos —frente, izquierda/derecha
- *             en dos niveles, arriba, abajo y diagonales— con control de calidad (luz, distancia, nitidez,
- *             confianza), variedad mínima entre capturas y coherencia de identidad. ~15 muestras.
- *  - identify: 3 capturas frontales coherentes + prueba de vida → búsqueda 1:N en Supabase.
- *  - verify:   igual que identify pero comparación 1:1 contra el código introducido.
+ *  - enroll  (obligatorio la primera vez, una sola vez): anillo de 11 ángulos.
+ *  - identify: 3 descriptores frontales + prueba de vida → búsqueda 1:N en Supabase.
+ *  - verify:   igual, pero comparación 1:1 contra el código introducido.
  *
- * yaw > 0  = la persona gira hacia SU izquierda (en la vista espejo aparece a la izquierda de la pantalla).
+ * Rapidez: el seguimiento (pose, calidad, parpadeo) corre en cada fotograma con MediaPipe;
+ * el descriptor de 128-d solo se calcula cuando la cabeza está quieta en un ángulo que falta.
+ *
+ * yaw > 0 = la persona gira hacia SU izquierda (en la vista espejo, a la izquierda de la pantalla).
  * pitch < 0 = mira hacia arriba (relativo a su línea base frontal).
  */
 const CELLS = [
-  { id: 'center', need: 3, label: 'Mira de frente', a: null, test: (y, p) => Math.abs(y) < 0.08 && Math.abs(p) < 0.05 },
-  { id: 'l1', need: 2, label: 'Gira un poco a tu izquierda', a: 180, r: 0.78, test: (y, p) => y > 0.1 && y <= 0.24 && Math.abs(p) < 0.09 },
-  { id: 'l2', need: 1, label: 'Gira más a tu izquierda', a: 180, r: 1.0, test: (y, p) => y > 0.24 && y < 0.5 && Math.abs(p) < 0.12 },
-  { id: 'r1', need: 2, label: 'Gira un poco a tu derecha', a: 0, r: 0.78, test: (y, p) => y < -0.1 && y >= -0.24 && Math.abs(p) < 0.09 },
-  { id: 'r2', need: 1, label: 'Gira más a tu derecha', a: 0, r: 1.0, test: (y, p) => y < -0.24 && y > -0.5 && Math.abs(p) < 0.12 },
-  { id: 'u', need: 1, label: 'Mira hacia arriba', a: 270, r: 1.0, test: (y, p) => p < -0.07 && Math.abs(y) < 0.1 },
-  { id: 'd', need: 1, label: 'Mira hacia abajo', a: 90, r: 1.0, test: (y, p) => p > 0.07 && Math.abs(y) < 0.1 },
-  { id: 'ul', need: 1, label: 'Arriba, hacia tu izquierda', a: 225, r: 1.0, test: (y, p) => p < -0.05 && y > 0.1 && y < 0.38 },
-  { id: 'ur', need: 1, label: 'Arriba, hacia tu derecha', a: 315, r: 1.0, test: (y, p) => p < -0.05 && y < -0.1 && y > -0.38 },
-  { id: 'dl', need: 1, label: 'Abajo, hacia tu izquierda', a: 135, r: 1.0, test: (y, p) => p > 0.05 && y > 0.1 && y < 0.38 },
-  { id: 'dr', need: 1, label: 'Abajo, hacia tu derecha', a: 45, r: 1.0, test: (y, p) => p > 0.05 && y < -0.1 && y > -0.38 },
+  { id: 'center', need: 3, label: 'Mira de frente a la cámara', a: null, test: (y, p) => Math.abs(y) < 0.06 && Math.abs(p) < 0.05 },
+  { id: 'l1', need: 2, label: 'Gira un poco a tu izquierda', a: 180, r: 0.78, test: (y, p) => y > 0.07 && y <= 0.17 && Math.abs(p) < 0.08 },
+  { id: 'l2', need: 1, label: 'Gira más a tu izquierda', a: 180, r: 1.0, test: (y, p) => y > 0.17 && y < 0.45 && Math.abs(p) < 0.1 },
+  { id: 'r1', need: 2, label: 'Gira un poco a tu derecha', a: 0, r: 0.78, test: (y, p) => y < -0.07 && y >= -0.17 && Math.abs(p) < 0.08 },
+  { id: 'r2', need: 1, label: 'Gira más a tu derecha', a: 0, r: 1.0, test: (y, p) => y < -0.17 && y > -0.45 && Math.abs(p) < 0.1 },
+  { id: 'u', need: 1, label: 'Levanta un poco la barbilla', a: 270, r: 1.0, test: (y, p) => p < -0.045 && Math.abs(y) < 0.08 },
+  { id: 'd', need: 1, label: 'Baja un poco la barbilla', a: 90, r: 1.0, test: (y, p) => p > 0.045 && Math.abs(y) < 0.08 },
+  { id: 'ul', need: 1, label: 'Arriba y hacia tu izquierda', a: 225, r: 1.0, test: (y, p) => p < -0.03 && y > 0.06 && y < 0.4 },
+  { id: 'ur', need: 1, label: 'Arriba y hacia tu derecha', a: 315, r: 1.0, test: (y, p) => p < -0.03 && y < -0.06 && y > -0.4 },
+  { id: 'dl', need: 1, label: 'Abajo y hacia tu izquierda', a: 135, r: 1.0, test: (y, p) => p > 0.03 && y > 0.06 && y < 0.4 },
+  { id: 'dr', need: 1, label: 'Abajo y hacia tu derecha', a: 45, r: 1.0, test: (y, p) => p > 0.03 && y < -0.06 && y > -0.4 },
 ]
 const TOTAL = CELLS.reduce((a, c) => a + c.need, 0)
 
@@ -50,9 +51,13 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const runRef = useRef(true)
+  const uiT = useRef(0)
+  const hist = useRef([])
+  const blinkRef = useRef({ open: false, blinked: false })
   const [phase, setPhase] = useState(mode === 'enroll' ? 'consent' : 'loading')
-  const [msg, setMsg] = useState('Cargando modelos de reconocimiento…')
+  const [msg, setMsg] = useState('Cargando reconocimiento facial…')
   const [q, setQ] = useState(null)
+  const [fps, setFps] = useState(0)
   const [progress, setProgress] = useState(0)
   const [cells, setCells] = useState({})
   const [nextCell, setNextCell] = useState(null)
@@ -67,10 +72,10 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     let cancelled = false
     ;(async () => {
       try {
-        setMsg('Cargando modelos de reconocimiento…')
+        setMsg('Cargando reconocimiento facial…')
         const [, stream] = await Promise.all([
           loadFace(),
-          openCamera({ facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }),
+          openCamera({ facingMode: 'user', width: { ideal: 960 }, height: { ideal: 540 }, frameRate: { ideal: 30 } }),
         ])
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return }
         streamRef.current = stream
@@ -92,41 +97,65 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     }
   }, [attempt, phase === 'consent']) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const frame = () => new Promise((r) => requestAnimationFrame(r))
-
+  // Siguiente fotograma con seguimiento rápido
+  const fpsC = useRef({ n: 0, t: 0 })
   async function next() {
     const v = videoRef.current
     if (!runRef.current || !v) throw new Error('cancel')
-    const f = await analyzeFace(v)
+    await new Promise((r) => (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(() => r()) : requestAnimationFrame(() => r())))
+    if (!runRef.current) throw new Error('cancel')
+    const now = performance.now()
+    const f = trackFace(v, now)
     draw(f)
-    setQ(f?.quality || null)
-    await frame()
+    // historial para estabilidad y parpadeo
+    if (f) {
+      hist.current.push({ y: f.quality.yaw, p: f.quality.pitchRaw, t: now })
+      if (hist.current.length > 8) hist.current.shift()
+      const b = blinkRef.current
+      if (f.quality.blink < 0.25) b.open = true
+      if (b.open && f.quality.blink > 0.55) b.blinked = true
+    } else hist.current = []
+    const c = fpsC.current
+    c.n++
+    if (now - c.t > 1000) { setFps(c.n); c.n = 0; c.t = now }
+    if (now - uiT.current > 120) { uiT.current = now; setQ(f?.quality || null) }
     return f
+  }
+
+  const stable = () => {
+    const h = hist.current
+    if (h.length < 4) return false
+    const ys = h.slice(-4).map((s) => s.y), ps = h.slice(-4).map((s) => s.p)
+    return Math.max(...ys) - Math.min(...ys) < 0.03 && Math.max(...ps) - Math.min(...ps) < 0.03
   }
 
   // ---------- Identificación / verificación ----------
   async function runMatch() {
     const front = []
     let lastT = 0
+    blinkRef.current = { open: false, blinked: false }
     setMsg('Mira de frente a la cámara')
     while (front.length < 3) {
       const f = await next()
-      if (!f || !f.quality.good || !f.quality.frontal) continue
-      if (performance.now() - lastT < 180) continue
-      if (front.length && descDistance(f.descriptor, front[front.length - 1]) > 0.4) { front.length = 0; continue }
-      front.push(f.descriptor); lastT = performance.now()
+      if (!f || !f.quality.good || !f.quality.frontal || !stable()) continue
+      if (performance.now() - lastT < 120) continue
+      const d = await describeFace(videoRef.current)
+      if (!d) continue
+      if (front.length && descDistance(d.descriptor, front[front.length - 1]) > 0.42) { front.length = 0; continue }
+      front.push(d.descriptor); lastT = performance.now()
       setProgress(front.length / 5)
     }
-    setMsg('Prueba de vida: gira la cabeza lentamente hacia un lado')
-    let live = false, earOpen = false
-    const t0 = performance.now()
-    while (!live) {
-      if (performance.now() - t0 > 15000) throw new Error('No se completó la prueba de vida. Inténtalo de nuevo.')
-      const f = await next()
-      if (!f || f.quality.score < 0.7) continue
-      if (descDistance(f.descriptor, front[0]) > 0.55) continue
-      if (f.quality.ear > 0.27) earOpen = true
-      if (Math.abs(f.quality.yaw) > 0.22 || (earOpen && f.quality.ear < 0.19)) live = true
+    // Prueba de vida: parpadeo (puede haber ocurrido ya) o giro de cabeza
+    if (!blinkRef.current.blinked) {
+      setMsg('Prueba de vida: parpadea o gira la cabeza a un lado')
+      const t0 = performance.now()
+      let live = false
+      while (!live) {
+        if (performance.now() - t0 > 12000) throw new Error('No se completó la prueba de vida. Inténtalo de nuevo.')
+        const f = await next()
+        if (!f) continue
+        if (blinkRef.current.blinked || Math.abs(f.quality.yaw) > 0.15) live = true
+      }
     }
     setProgress(0.85)
     setMsg(mode === 'verify' ? 'Verificando que eres el titular del código…' : 'Buscando tu perfil…')
@@ -135,7 +164,7 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     setProgress(1)
     setResult(r)
     setPhase(r.match ? 'ok' : 'fail')
-    if (r.match) setTimeout(() => (mode === 'verify' ? onVerified(r) : onIdentified(r)), 1100)
+    if (r.match) setTimeout(() => (mode === 'verify' ? onVerified(r) : onIdentified(r)), 900)
   }
 
   // ---------- Registro multi-ángulo ----------
@@ -147,6 +176,8 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     const lastByCell = {}
     const t0 = performance.now()
     const pending = () => CELLS.filter((c) => count[c.id] < c.need)
+    const poses = () => CELLS.filter((c) => count[c.id] > 0).length
+    const enough = () => samples.length >= 12 && poses() >= 8 && count.center >= 3
     const update = () => {
       setCells({ ...count })
       setProgress(samples.length / TOTAL)
@@ -156,25 +187,32 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     }
     update()
     while (pending().length) {
-      if (performance.now() - t0 > 120000) throw new Error('Se agotó el tiempo. Busca buena luz y vuelve a intentarlo.')
+      const elapsed = performance.now() - t0
+      if (elapsed > 45000 && enough()) break                 // ya hay cobertura suficiente
+      if (elapsed > 150000) {
+        if (samples.length >= 10 && poses() >= 7 && count.center >= 3) break
+        throw new Error('No se completaron los ángulos. Busca buena luz de frente y vuelve a intentarlo.')
+      }
       const f = await next()
-      if (!f || !f.quality.good || Math.abs(f.quality.roll) > 20) continue
+      if (!f || !f.quality.good || !stable()) continue
       const y = f.quality.yaw
       const p = base == null ? 0 : f.quality.pitchRaw - base
       let cell
       if (base == null) {
-        if (!(Math.abs(y) < 0.08 && Math.abs(f.quality.roll) < 10)) continue
+        if (!(Math.abs(y) < 0.06 && Math.abs(f.quality.roll) < 10)) continue
         cell = CELLS[0]
       } else {
         cell = pending().find((c) => c.test(y, p))
         if (!cell) continue
       }
+      const d = await describeFace(videoRef.current)
+      if (!d) continue
       // misma persona que las capturas frontales
-      if (centerMean && descDistance(centerMean, f.descriptor) > (cell.id === 'center' ? 0.42 : 0.62)) continue
+      if (centerMean && descDistance(centerMean, d.descriptor) > (cell.id === 'center' ? 0.42 : 0.62)) continue
       // variedad mínima dentro de la misma celda
-      if (lastByCell[cell.id] && descDistance(lastByCell[cell.id], f.descriptor) < 0.03) continue
-      samples.push({ pose: cell.id, d: f.descriptor, pr: f.quality.pitchRaw })
-      lastByCell[cell.id] = f.descriptor
+      if (lastByCell[cell.id] && descDistance(lastByCell[cell.id], d.descriptor) < 0.03) continue
+      samples.push({ pose: cell.id, d: d.descriptor, pr: f.quality.pitchRaw })
+      lastByCell[cell.id] = d.descriptor
       count[cell.id]++
       if (cell.id === 'center') {
         const cs = samples.filter((s) => s.pose === 'center')
@@ -182,14 +220,14 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
         if (cs.length >= 3) base = cs.reduce((a, s) => a + s.pr, 0) / cs.length
       }
       update()
-      await new Promise((r) => setTimeout(r, 160))
+      if (navigator.vibrate) navigator.vibrate(25)
     }
     setPhase('check'); setMsg('Guardando tu huella facial…')
     const r = await api.faceEnroll(code, samples.map(({ pose, d }) => ({ pose, d })))
     setResult(r)
     setProgress(1)
     setPhase('ok')
-    setTimeout(() => onEnrolled(r), 1300)
+    setTimeout(() => onEnrolled(r), 1100)
   }
 
   function draw(f) {
@@ -207,8 +245,11 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
       ctx.beginPath(); ctx.moveTo(cx, cy + sy * L); ctx.lineTo(cx, cy); ctx.lineTo(cx + sx * L, cy); ctx.stroke()
     }
     ctx.shadowBlur = 0
-    ctx.fillStyle = 'rgba(34,211,238,0.85)'
-    for (const p of f.landmarks) { ctx.beginPath(); ctx.arc(p.x, p.y, 1.8, 0, Math.PI * 2); ctx.fill() }
+    ctx.fillStyle = 'rgba(34,211,238,0.75)'
+    for (let i = 0; i < f.lm.length; i += 4) {
+      const p = f.lm[i]
+      ctx.fillRect(p.x * c.width - 1, p.y * c.height - 1, 2, 2)
+    }
   }
 
   const retry = () => { setResult(null); setError(''); setProgress(0); setCells({}); setPinMode(false); setPhase('loading'); setAttempt((a) => a + 1) }
@@ -217,8 +258,9 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     return <ConsentStep text={consentText} code={code} mandatory={mandatory} onCancel={onClose} onAccept={() => setPhase('loading')} />
   }
 
-  const chips = q && [['Luz', q.okLight], ['Distancia', q.okSize], ['Nitidez', q.okSharp], ['Confianza', q.okScore]]
+  const chips = q && [['Luz', q.okLight], ['Distancia', q.okSize && q.okFar], ['Nitidez', q.okSharp], ['Quieto', stable()]]
   const title = mode === 'enroll' ? 'Registro facial' : mode === 'verify' ? 'Verificación de identidad' : 'Reconocimiento facial'
+  const hint = q && !q.okSize ? 'Acércate un poco a la cámara' : q && !q.okFar ? 'Aléjate un poco' : q && !q.okLight ? 'Necesitas más luz de frente' : null
 
   return (
     <div>
@@ -239,7 +281,6 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
         {mode === 'enroll' && (
           <div className="angle-ring">
             {CELLS.filter((c) => c.a != null).map((c) => {
-              // vista espejo: la izquierda de la persona aparece a la izquierda de la pantalla
               const rad = (c.a * Math.PI) / 180
               const R = 44 * c.r
               const done = (cells[c.id] || 0) >= c.need
@@ -253,6 +294,7 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
           </div>
         )}
         {phase === 'scan' && <div className="scanline" />}
+        {phase === 'scan' && <span className="face-fps mono">{fps} fps</span>}
         <AnimatePresence>
           {(phase === 'ok' || phase === 'fail' || phase === 'error') && (
             <motion.div className="face-result" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}>
@@ -279,11 +321,12 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
 
       <div className="face-progress"><motion.i animate={{ width: `${Math.round(progress * 100)}%` }} /></div>
       <p style={{ textAlign: 'center', fontWeight: 600, margin: '10px 0 6px', minHeight: 24 }}>
-        {phase === 'scan' || phase === 'check' || phase === 'loading' ? msg : ''}
+        {phase === 'scan' && hint ? <span style={{ color: 'var(--warn)' }}>{hint}</span> : phase === 'scan' || phase === 'check' || phase === 'loading' ? msg : ''}
         {mode === 'enroll' && phase === 'scan' && <span className="muted mono" style={{ fontWeight: 400 }}> · {Math.round(progress * TOTAL)}/{TOTAL}</span>}
       </p>
       <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', minHeight: 28 }}>
-        {chips?.map(([k, ok]) => (
+        {phase === 'scan' && !q && <span className="chip">Buscando rostro…</span>}
+        {phase === 'scan' && chips?.map(([k, ok]) => (
           <span key={k} className="chip" style={{ borderColor: ok ? 'rgba(52,211,153,.5)' : 'rgba(251,191,36,.5)' }}>{ok ? '✓' : '•'} {k}</span>
         ))}
       </div>
@@ -331,7 +374,7 @@ function ConsentStep({ text, code, mandatory, onCancel, onAccept }) {
       <h2 style={{ margin: '6px 0' }}>Bienvenido · cliente {code}</h2>
       <p className="muted">
         {mandatory ? 'Es tu primera vez: para registrar tus entrenamientos en tu número debes registrar tu rostro. Se hace una sola vez. ' : ''}
-        Moverás la cabeza lentamente para capturar todos los ángulos (frente, lados, arriba, abajo y diagonales). Busca buena luz de frente
+        Sigue el punto que brilla moviendo la cabeza despacio (frente, lados, arriba, abajo y diagonales). Busca buena luz de frente
         y quítate gafas oscuras o gorra. No se guardan fotos, solo vectores numéricos.
       </p>
       <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', margin: '14px 0', cursor: 'pointer' }}>

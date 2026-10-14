@@ -1,57 +1,97 @@
-// Reconocimiento facial: detector SSD MobileNet v1 + 68 puntos + red de reconocimiento
-// (ResNet-34, descriptor de 128 dimensiones, 99.38 % en LFW). Solo se envían a la base de
-// datos los descriptores numéricos; la comparación se hace en Supabase (pgvector).
+// Reconocimiento facial en dos velocidades:
+//  1. Seguimiento rápido (cada fotograma, GPU): MediaPipe FaceLandmarker — 478 puntos, pose de la cabeza
+//     y parpadeo (blendshapes). Sirve para guiar al usuario y decidir CUÁNDO capturar.
+//  2. Descriptor (solo en fotogramas útiles): face-api — detector TinyFace + 68 puntos + ResNet-34
+//     (descriptor de 128 dimensiones, 99.38 % en LFW). Solo se envían a Supabase los vectores;
+//     la comparación se hace en el servidor (pgvector).
+import { FaceLandmarker } from '@mediapipe/tasks-vision'
+import { getVisionFileset } from './pose'
 
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/'
+const FACEAPI_MODELS = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/'
+const MP_FACE = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
+
 let loading = null
 let fapi = null
+let tracker = null
 
 export function loadFace() {
   if (loading) return loading
   loading = (async () => {
-    fapi = await import('@vladmandic/face-api')
-    try { await fapi.tf.setBackend('webgl') } catch { /* usa el backend por defecto */ }
+    const [api, fileset] = await Promise.all([import('@vladmandic/face-api'), getVisionFileset()])
+    fapi = api
+    try { await fapi.tf.setBackend('webgl') } catch { /* backend por defecto */ }
     await fapi.tf.ready()
-    await Promise.all([
-      fapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      fapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      fapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+    const opts = (delegate) => ({
+      baseOptions: { modelAssetPath: MP_FACE, delegate },
+      runningMode: 'VIDEO', numFaces: 1,
+      minFaceDetectionConfidence: 0.5, minFacePresenceConfidence: 0.5, minTrackingConfidence: 0.5,
+      outputFaceBlendshapes: true,
+    })
+    const mk = async () => {
+      try { return await FaceLandmarker.createFromOptions(fileset, opts('GPU')) } catch { return FaceLandmarker.createFromOptions(fileset, opts('CPU')) }
+    }
+    ;[tracker] = await Promise.all([
+      mk(),
+      fapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS),
+      fapi.nets.faceLandmark68Net.loadFromUri(FACEAPI_MODELS),
+      fapi.nets.faceRecognitionNet.loadFromUri(FACEAPI_MODELS),
     ])
-    return fapi
+    // Calentamiento: la primera inferencia compila los shaders
+    const warm = document.createElement('canvas'); warm.width = warm.height = 160
+    await fapi.detectSingleFace(warm, new fapi.TinyFaceDetectorOptions({ inputSize: 160 })).withFaceLandmarks().withFaceDescriptor().catch(() => null)
+    return true
   })()
   loading.catch(() => { loading = null })
   return loading
 }
 
-const lumCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+const statCanvas = typeof document !== 'undefined' ? document.createElement('canvas') : null
+let lastStats = { light: 128, sharp: 100 }, statFrame = 0
 
-/** Analiza un fotograma y devuelve el rostro con métricas de calidad. */
-export async function analyzeFace(video) {
-  const opts = new fapi.SsdMobilenetv1Options({ minConfidence: 0.5, maxResults: 1 })
-  const r = await fapi.detectSingleFace(video, opts).withFaceLandmarks().withFaceDescriptor()
-  if (!r) return null
-  const { box, score } = r.detection
-  const pts = r.landmarks.positions
-  const eyeL = avg(pts.slice(36, 42)), eyeR = avg(pts.slice(42, 48))
-  const nose = pts[30]
-  const eyeDist = Math.hypot(eyeR.x - eyeL.x, eyeR.y - eyeL.y) || 1
-  const mid = { x: (eyeL.x + eyeR.x) / 2, y: (eyeL.y + eyeR.y) / 2 }
-  const yaw = (nose.x - mid.x) / eyeDist                          // ≈0 de frente; >0 = gira a su izquierda
-  const pitchRaw = (nose.y - mid.y) / eyeDist                     // menor = mira arriba (se compara con su línea base)
-  const roll = (Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180) / Math.PI
-  const ear = (eyeAR(pts.slice(36, 42)) + eyeAR(pts.slice(42, 48))) / 2
-  const sizeRatio = box.width / video.videoWidth
-  const { light, sharp } = cropStats(video, box)
+/**
+ * Seguimiento rápido de un fotograma. Coordenadas normalizadas del video SIN espejo.
+ * yaw > 0  = la persona gira hacia SU izquierda · pitchRaw menor = mira hacia arriba.
+ */
+export function trackFace(video, ts) {
+  const r = tracker.detectForVideo(video, ts)
+  const lm = r.faceLandmarks?.[0]
+  if (!lm) return null
+  let x0 = 1, y0 = 1, x1 = 0, y1 = 0
+  for (const p of lm) { if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y }
+  const nose = lm[1], fore = lm[10], chin = lm[152], cA = lm[234], cB = lm[454]
+  const faceW = Math.abs(cB.x - cA.x) || 1e-3
+  const faceH = Math.abs(chin.y - fore.y) || 1e-3
+  const yaw = (nose.x - (cA.x + cB.x) / 2) / faceW
+  const pitchRaw = (nose.y - (fore.y + chin.y) / 2) / faceH
+  const eyeL = lm[33], eyeR = lm[263]
+  let roll = (Math.atan2(eyeR.y - eyeL.y, eyeR.x - eyeL.x) * 180) / Math.PI
+  if (roll > 90) roll -= 180
+  if (roll < -90) roll += 180
+  const bs = Object.fromEntries((r.faceBlendshapes?.[0]?.categories || []).map((c) => [c.categoryName, c.score]))
+  const blink = Math.max(bs.eyeBlinkLeft || 0, bs.eyeBlinkRight || 0)
+  const box = { x: x0 * video.videoWidth, y: y0 * video.videoHeight, width: (x1 - x0) * video.videoWidth, height: (y1 - y0) * video.videoHeight }
+  if (++statFrame % 6 === 0) lastStats = cropStats(video, box)
+  const sizeRatio = x1 - x0
   const q = {
-    score, yaw, pitchRaw, roll, ear, sizeRatio, light, sharp,
-    okSize: sizeRatio >= 0.16,
-    okLight: light >= 55 && light <= 215,
-    okScore: score >= 0.8,
-    okSharp: sharp >= 25,
-    frontal: Math.abs(yaw) < 0.12 && Math.abs(roll) < 12,
+    yaw, pitchRaw, roll, blink, sizeRatio, ...lastStats,
+    okSize: sizeRatio >= 0.11,
+    okFar: sizeRatio <= 0.75,
+    okLight: lastStats.light >= 40 && lastStats.light <= 230,
+    okSharp: lastStats.sharp >= 6,
   }
-  q.good = q.okSize && q.okLight && q.okScore && q.okSharp
-  return { box, score, landmarks: pts, descriptor: Array.from(r.descriptor), quality: q }
+  q.frontal = Math.abs(yaw) < 0.07 && Math.abs(roll) < 12
+  q.good = q.okSize && q.okFar && q.okLight && q.okSharp && Math.abs(roll) < 22
+  return { lm, box, quality: q }
+}
+
+/** Descriptor de 128 dimensiones del rostro actual (solo cuando hace falta). */
+export async function describeFace(video) {
+  const r = await fapi
+    .detectSingleFace(video, new fapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.45 }))
+    .withFaceLandmarks()
+    .withFaceDescriptor()
+  if (!r || r.detection.score < 0.6) return null
+  return { descriptor: Array.from(r.descriptor), score: r.detection.score }
 }
 
 export function descDistance(a, b) {
@@ -60,16 +100,12 @@ export function descDistance(a, b) {
   return Math.sqrt(s)
 }
 
-const avg = (ps) => ({ x: ps.reduce((a, p) => a + p.x, 0) / ps.length, y: ps.reduce((a, p) => a + p.y, 0) / ps.length })
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
-const eyeAR = (e) => (dist(e[1], e[5]) + dist(e[2], e[4])) / (2 * dist(e[0], e[3]) || 1)
-
 /** Brillo medio y nitidez (varianza del laplaciano) del recorte del rostro. */
 function cropStats(video, box) {
-  if (!lumCanvas) return { light: 128, sharp: 100 }
+  if (!statCanvas || box.width < 8) return lastStats
   const w = 64, h = 64
-  lumCanvas.width = w; lumCanvas.height = h
-  const c = lumCanvas.getContext('2d', { willReadFrequently: true })
+  statCanvas.width = w; statCanvas.height = h
+  const c = statCanvas.getContext('2d', { willReadFrequently: true })
   c.drawImage(video, box.x, box.y, box.width, box.height, 0, 0, w, h)
   const d = c.getImageData(0, 0, w, h).data
   const g = new Float32Array(w * h)

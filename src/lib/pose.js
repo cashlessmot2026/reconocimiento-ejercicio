@@ -15,12 +15,18 @@ export const defaultModel = () => (isMobile() ? 'lite' : 'full')
 let fileset = null
 const cache = {}
 
+/** WASM de MediaPipe Vision compartido (pose y rostro). */
+export async function getVisionFileset() {
+  fileset ??= await FilesetResolver.forVisionTasks(WASM)
+  return fileset
+}
+
 /** Carga (una vez por variante) el detector de pose de 33 puntos. Sin máscara de
  *  segmentación: leerla de la GPU en cada fotograma era el principal cuello de botella. */
 export function loadPoseLandmarker(variant = defaultModel()) {
   if (cache[variant]) return cache[variant]
   cache[variant] = (async () => {
-    fileset ??= await FilesetResolver.forVisionTasks(WASM)
+    await getVisionFileset()
     const opts = (delegate) => ({
       baseOptions: { modelAssetPath: MODELS[variant], delegate },
       runningMode: 'VIDEO',

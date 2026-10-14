@@ -13,7 +13,7 @@ const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', re
 const AX = { stroke: '#8b97b5', fontSize: 11, tickLine: false, axisLine: false }
 const TT = { contentStyle: { background: '#0f1528', border: '1px solid rgba(148,163,184,.2)', borderRadius: 10 }, labelStyle: { color: '#e8eefc' } }
 
-export default function Admin({ boot, pin, notify, onLock }) {
+export default function Admin({ boot, pin, notify, onLock, onFaceConfig }) {
   const { exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [overview, setOverview] = useState(null)
@@ -49,7 +49,8 @@ export default function Admin({ boot, pin, notify, onLock }) {
           <h2>{boot.copy.admin_title}</h2>
           <span className="muted">Analítica de clientes y progreso semanal</span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <FaceToggle pin={pin} notify={notify} onChange={onFaceConfig} />
           <GlowButton variant="sm ghost" onClick={() => { loadAll(); loadDetail(sel) }}>↻ Actualizar</GlowButton>
           <GlowButton variant="sm hot" onClick={onLock}>🔒 Bloquear</GlowButton>
         </div>
@@ -429,3 +430,25 @@ function RoutineEditor({ detail, code, exercises, exById, pin, notify, reload })
 
 const PUNCH_NAMES = { jab: 'Jab', cross: 'Directo', lead_hook: 'Gancho adel.', rear_hook: 'Gancho atrás', lead_upper: 'Upper adel.', rear_upper: 'Upper atrás' }
 const punchName = (id) => PUNCH_NAMES[id] || id
+
+/** Interruptor del reconocimiento facial (opcional, lo decide el coach). */
+function FaceToggle({ pin, notify, onChange }) {
+  const [on, setOn] = useState(null)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { api.faceConfig().then((f) => setOn(f.enabled !== false)).catch(() => setOn(null)) }, [])
+  const toggle = async () => {
+    setBusy(true)
+    try {
+      const v = await api.adminSetFaceEnabled(pin, !on)
+      setOn(v.enabled !== false)
+      onChange?.(v)
+      notify(v.enabled !== false ? 'Reconocimiento facial ACTIVADO: registro obligatorio y verificación al entrar' : 'Reconocimiento facial DESACTIVADO: los clientes entran solo con su código')
+    } catch (e) { notify(e.message) } finally { setBusy(false) }
+  }
+  return (
+    <button className={`switch ${on ? 'on' : ''}`} disabled={on == null || busy} onClick={toggle} role="switch" aria-checked={!!on}>
+      <span className="switch-track"><motion.span className="switch-thumb" layout transition={{ type: 'spring', stiffness: 500, damping: 30 }} /></span>
+      <span>🙂 Reconocimiento facial: <b>{on == null ? '…' : on ? 'Activado' : 'Desactivado'}</b></span>
+    </button>
+  )
+}

@@ -10,7 +10,7 @@ const toItem = (ex, r) => ({
   load_kg: Number(r.load_kg) || 0, stance: r.stance || 'orthodox', routine_id: r.id || null,
 })
 
-export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart, notify }) {
+export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart, notify, faceEnabled }) {
   const { copy, exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [cat, setCat] = useState('Todos')
@@ -60,7 +60,7 @@ export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart
         </motion.div>
 
         <motion.div className="card code-box" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
-          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogin={onLogin} onLogout={onLogout} notify={notify} />
+          <CodeGate copy={copy} client={client} onEnter={onEnter} onLogin={onLogin} onLogout={onLogout} notify={notify} faceEnabled={faceEnabled} />
         </motion.div>
       </section>
 
@@ -176,7 +176,7 @@ export default function Home({ boot, client, onEnter, onLogin, onLogout, onStart
   )
 }
 
-function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify }) {
+function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify, faceEnabled }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [busy, setBusy] = useState(false)
   const [faceMode, setFaceMode] = useState(null)
@@ -228,10 +228,10 @@ function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify }) {
             try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
           }}>Guardar</GlowButton>
         </div>
-        <span className="chip" style={{ alignSelf: 'flex-start', borderColor: 'rgba(52,211,153,.5)' }}>
+        {client.face_samples > 0 && <span className="chip" style={{ alignSelf: 'flex-start', borderColor: 'rgba(52,211,153,.5)' }}>
           <span className="dot" style={{ background: 'var(--ok)', boxShadow: '0 0 8px var(--ok)' }} />
           Identidad verificada · rostro registrado ({client.face_samples} muestras)
-        </span>
+        </span>}
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Todo lo que entrenes se registrará en este código.</p>
       </>
     )
@@ -263,8 +263,8 @@ function CodeGate({ copy, client, onEnter, onLogin, onLogout, notify }) {
       <GlowButton variant="solid" disabled={!digits.every(Boolean) || busy} onClick={() => submit(digits.join(''))}>
         {busy ? 'Verificando…' : copy.start}
       </GlowButton>
-      <div className="or-sep"><span>o</span></div>
-      <GlowButton variant="ghost" onClick={() => setFaceMode('identify')}>🙂 Entrar con reconocimiento facial</GlowButton>
+      {faceEnabled && <div className="or-sep"><span>o</span></div>}
+      {faceEnabled && <GlowButton variant="ghost" onClick={() => setFaceMode('identify')}>🙂 Entrar con reconocimiento facial</GlowButton>}
       <FaceId open={faceMode === 'identify'} mode="identify" onClose={() => setFaceMode(null)}
         onIdentified={async (r) => {
           setFaceMode(null)
