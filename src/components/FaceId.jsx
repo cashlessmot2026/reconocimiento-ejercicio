@@ -6,7 +6,7 @@ import { GlowButton } from './ui'
 
 /*
  * Modos:
- *  - enroll  (obligatorio la primera vez, una sola vez): anillo de 11 ángulos.
+ *  - enroll  (obligatorio la primera vez, una sola vez): 3 posiciones —frente, izquierda, derecha— y 5 capturas.
  *  - identify: 3 descriptores frontales + prueba de vida → búsqueda 1:N en Supabase.
  *  - verify:   igual, pero comparación 1:1 contra el código introducido.
  *
@@ -17,17 +17,9 @@ import { GlowButton } from './ui'
  * pitch < 0 = mira hacia arriba (relativo a su línea base frontal).
  */
 const CELLS = [
-  { id: 'center', need: 3, label: 'Mira de frente a la cámara', a: null, test: (y, p) => Math.abs(y) < 0.06 && Math.abs(p) < 0.05 },
-  { id: 'l1', need: 2, label: 'Gira un poco a tu izquierda', a: 180, r: 0.78, test: (y, p) => y > 0.07 && y <= 0.17 && Math.abs(p) < 0.08 },
-  { id: 'l2', need: 1, label: 'Gira más a tu izquierda', a: 180, r: 1.0, test: (y, p) => y > 0.17 && y < 0.45 && Math.abs(p) < 0.1 },
-  { id: 'r1', need: 2, label: 'Gira un poco a tu derecha', a: 0, r: 0.78, test: (y, p) => y < -0.07 && y >= -0.17 && Math.abs(p) < 0.08 },
-  { id: 'r2', need: 1, label: 'Gira más a tu derecha', a: 0, r: 1.0, test: (y, p) => y < -0.17 && y > -0.45 && Math.abs(p) < 0.1 },
-  { id: 'u', need: 1, label: 'Levanta un poco la barbilla', a: 270, r: 1.0, test: (y, p) => p < -0.045 && Math.abs(y) < 0.08 },
-  { id: 'd', need: 1, label: 'Baja un poco la barbilla', a: 90, r: 1.0, test: (y, p) => p > 0.045 && Math.abs(y) < 0.08 },
-  { id: 'ul', need: 1, label: 'Arriba y hacia tu izquierda', a: 225, r: 1.0, test: (y, p) => p < -0.03 && y > 0.06 && y < 0.4 },
-  { id: 'ur', need: 1, label: 'Arriba y hacia tu derecha', a: 315, r: 1.0, test: (y, p) => p < -0.03 && y < -0.06 && y > -0.4 },
-  { id: 'dl', need: 1, label: 'Abajo y hacia tu izquierda', a: 135, r: 1.0, test: (y, p) => p > 0.03 && y > 0.06 && y < 0.4 },
-  { id: 'dr', need: 1, label: 'Abajo y hacia tu derecha', a: 45, r: 1.0, test: (y, p) => p > 0.03 && y < -0.06 && y > -0.4 },
+  { id: 'center', need: 3, label: 'Mira de frente a la cámara', a: null, test: (y) => Math.abs(y) < 0.08 },
+  { id: 'l1', need: 1, label: 'Gira un poco la cabeza a tu izquierda', a: 180, r: 1.0, test: (y) => y > 0.08 && y < 0.45 },
+  { id: 'r1', need: 1, label: 'Ahora gira un poco a tu derecha', a: 0, r: 1.0, test: (y) => y < -0.08 && y > -0.45 },
 ]
 const TOTAL = CELLS.reduce((a, c) => a + c.need, 0)
 
@@ -131,9 +123,9 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
 
   const stable = () => {
     const h = hist.current
-    if (h.length < 4) return false
-    const ys = h.slice(-4).map((s) => s.y), ps = h.slice(-4).map((s) => s.p)
-    return Math.max(...ys) - Math.min(...ys) < 0.03 && Math.max(...ps) - Math.min(...ps) < 0.03
+    if (h.length < 3) return false
+    const ys = h.slice(-3).map((s) => s.y), ps = h.slice(-3).map((s) => s.p)
+    return Math.max(...ys) - Math.min(...ys) < 0.04 && Math.max(...ps) - Math.min(...ps) < 0.04
   }
 
   // ---------- Identificación / verificación ----------
@@ -178,13 +170,12 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
   async function runEnroll() {
     const samples = []                      // { pose, d, pr }
     const count = Object.fromEntries(CELLS.map((c) => [c.id, 0]))
-    let base = null                         // línea base de pitch (media de las frontales)
     let centerMean = null
     const lastByCell = {}
     const t0 = performance.now()
     const pending = () => CELLS.filter((c) => count[c.id] < c.need)
     const poses = () => CELLS.filter((c) => count[c.id] > 0).length
-    const enough = () => samples.length >= 12 && poses() >= 8 && count.center >= 3
+    const enough = () => count.center >= 2 && poses() >= 2 && samples.length >= 4
     const update = () => {
       setCells({ ...count })
       setProgress(samples.length / TOTAL)
@@ -195,36 +186,26 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
     update()
     while (pending().length) {
       const elapsed = performance.now() - t0
-      if (elapsed > 45000 && enough()) break                 // ya hay cobertura suficiente
-      if (elapsed > 150000) {
-        if (samples.length >= 10 && poses() >= 7 && count.center >= 3) break
-        throw new Error('No se completaron los ángulos. Busca buena luz de frente y vuelve a intentarlo.')
-      }
+      if (elapsed > 20000 && enough()) break                 // suficiente para registrar
+      if (elapsed > 60000) throw new Error('No se pudo capturar tu rostro. Busca buena luz de frente y vuelve a intentarlo.')
       const f = await next()
       if (!f || !f.quality.good || !stable()) continue
       const y = f.quality.yaw
-      const p = base == null ? 0 : f.quality.pitchRaw - base
-      let cell
-      if (base == null) {
-        if (!(Math.abs(y) < 0.06 && Math.abs(f.quality.roll) < 10)) continue
-        cell = CELLS[0]
-      } else {
-        cell = pending().find((c) => c.test(y, p))
-        if (!cell) continue
-      }
+      // primero las 3 frontales; luego cualquier lado que falte
+      const cell = count.center < 3 ? (CELLS[0].test(y) ? CELLS[0] : null) : pending().find((c) => c.test(y))
+      if (!cell) continue
       const d = await describeFace(videoRef.current)
       if (!d) continue
       // misma persona que las capturas frontales
       if (centerMean && descDistance(centerMean, d.descriptor) > (cell.id === 'center' ? 0.42 : 0.62)) continue
       // variedad mínima dentro de la misma celda
-      if (lastByCell[cell.id] && descDistance(lastByCell[cell.id], d.descriptor) < 0.03) continue
+      if (lastByCell[cell.id] && descDistance(lastByCell[cell.id], d.descriptor) < 0.02) continue
       samples.push({ pose: cell.id, d: d.descriptor, pr: f.quality.pitchRaw })
       lastByCell[cell.id] = d.descriptor
       count[cell.id]++
       if (cell.id === 'center') {
         const cs = samples.filter((s) => s.pose === 'center')
         centerMean = cs[0].d.map((_, i) => cs.reduce((a, s) => a + s.d[i], 0) / cs.length)
-        if (cs.length >= 3) base = cs.reduce((a, s) => a + s.pr, 0) / cs.length
       }
       update()
       if (navigator.vibrate) navigator.vibrate(25)
@@ -381,7 +362,7 @@ function ConsentStep({ text, code, mandatory, onCancel, onAccept }) {
       <h2 style={{ margin: '6px 0' }}>Bienvenido · cliente {code}</h2>
       <p className="muted">
         {mandatory ? 'Es tu primera vez: para registrar tus entrenamientos en tu número debes registrar tu rostro. Se hace una sola vez. ' : ''}
-        Sigue el punto que brilla moviendo la cabeza despacio (frente, lados, arriba, abajo y diagonales). Busca buena luz de frente
+        Solo tomará unos segundos: mira de frente y luego gira un poco la cabeza a cada lado. Busca buena luz de frente
         y quítate gafas oscuras o gorra. No se guardan fotos, solo vectores numéricos.
       </p>
       <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', margin: '14px 0', cursor: 'pointer' }}>
