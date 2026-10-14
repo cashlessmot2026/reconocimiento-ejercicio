@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import BodyMap from './BodyMap'
+import AssessmentForm from './AssessmentForm'
+import { BMI_COLOR } from '../lib/body'
 
 const toItem = (ex, r) => ({
   exercise: ex, sets: r.sets, reps: r.reps, incline_deg: r.incline_deg, rest_sec: r.rest_sec,
@@ -179,6 +181,7 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
   const [digits, setDigits] = useState(['', '', '', ''])
   const [busy, setBusy] = useState(false)
   const [weight, setWeight] = useState('')
+  const [assessOpen, setAssessOpen] = useState(false)
   const refs = [useRef(), useRef(), useRef(), useRef()]
 
   const submit = async (code) => {
@@ -226,6 +229,30 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
             try { await api.setWeight(client.code, Number(weight)); await onEnter(client.code); setWeight(''); notify('Peso guardado') } catch (e) { notify(e.message) }
           }}>Guardar</GlowButton>
         </div>
+        {client.assessment && (
+          <div className="chip" style={{ alignSelf: 'flex-start', gap: 8 }}>
+            📋 IMC <b className="mono" style={{ color: BMI_COLOR[client.assessment.bmi_class] }}>{client.assessment.bmi ?? '—'}</b>
+            {client.assessment.bmi_class && <span className="muted">{client.assessment.bmi_class}</span>}
+          </div>
+        )}
+        <GlowButton variant={client.assessment ? 'ghost' : 'solid ok'} onClick={() => setAssessOpen(true)}>
+          📋 {client.assessment ? 'Actualizar mi evaluación física' : 'Completar mi evaluación física'}
+        </GlowButton>
+        <Modal open={assessOpen} onClose={() => setAssessOpen(false)} className="assess-sheet">
+          {assessOpen && (
+            <AssessmentForm
+              source="cliente"
+              initial={client.assessment ? { ...client.assessment, notes: '' } : null}
+              onClose={() => setAssessOpen(false)}
+              onSubmit={async (data) => {
+                await api.addAssessment(client.code, data)
+                await onEnter(client.code)
+                setAssessOpen(false)
+                notify('✓ Evaluación guardada')
+              }}
+            />
+          )}
+        </Modal>
         <p className="muted" style={{ margin: 0, fontSize: 13 }}>Todo lo que entrenes se registrará en este código.</p>
       </>
     )

@@ -66,5 +66,9 @@ export function Stepper({ value, onChange, min = 1, max = 99, step = 1 }) {
   )
 }
 
-export const fmtDate = (d) =>
-  new Date(d).toLocaleDateString('es', { day: '2-digit', month: 'short' })
+export const fmtDate = (d) => {
+  // Una fecha sola (YYYY-MM-DD) es un día de calendario: no debe moverse por la zona horaria
+  const m = typeof d === 'string' && d.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const dt = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(d)
+  return dt.toLocaleDateString('es', { day: '2-digit', month: 'short' })
+}

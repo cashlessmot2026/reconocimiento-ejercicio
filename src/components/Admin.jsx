@@ -7,6 +7,7 @@ import {
 import { api } from '../lib/api'
 import { GlowButton, Stepper, fmtDate } from './ui'
 import BodyMap from './BodyMap'
+import ProgressSection, { RangeBar, emptyRange } from './Progress'
 
 const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
 
@@ -20,6 +21,8 @@ export default function Admin({ boot, pin, notify, onLock }) {
   const [clients, setClients] = useState([])
   const [sel, setSel] = useState(null)
   const [detail, setDetail] = useState(null)
+  const [progress, setProgress] = useState(null)
+  const [range, setRange] = useState(emptyRange)
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,8 +37,14 @@ export default function Admin({ boot, pin, notify, onLock }) {
   const loadDetail = useCallback(async (code) => {
     if (!code) return
     setLoading(true)
-    try { setDetail(await api.adminClient(pin, code)) } catch (e) { notify(e.message) } finally { setLoading(false) }
-  }, [pin, notify])
+    try {
+      const [d, p] = await Promise.all([
+        api.adminClient(pin, code, range.from, range.to),
+        api.adminProgress(pin, code, range.from, range.to),
+      ])
+      setDetail(d); setProgress(p)
+    } catch (e) { notify(e.message) } finally { setLoading(false) }
+  }, [pin, notify, range])
 
   useEffect(() => { loadAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadDetail(sel) }, [sel, loadDetail])
@@ -104,7 +113,7 @@ export default function Admin({ boot, pin, notify, onLock }) {
           <AnimatePresence mode="wait">
             {detail && (
               <motion.div key={sel} initial={{ opacity: 0, y: 10 }} animate={{ opacity: loading ? 0.5 : 1, y: 0 }} exit={{ opacity: 0 }}>
-                <ClientDetail detail={detail} code={sel} exById={exById} groups={groups} exercises={exercises}
+                <ClientDetail detail={detail} progress={progress} range={range} setRange={setRange} code={sel} exById={exById} groups={groups} exercises={exercises}
                   pin={pin} notify={notify} reload={() => { loadDetail(sel); loadAll() }} />
               </motion.div>
             )}
@@ -130,7 +139,7 @@ function Kpi({ label, value, delta }) {
   )
 }
 
-function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, reload }) {
+function ClientDetail({ detail, progress, range, setRange, code, exById, groups, exercises, pin, notify, reload }) {
   const weekly = (detail.weekly || []).map((w) => ({ ...w, wk: fmtDate(w.week) }))
   const cur = weekly[weekly.length - 1], prev = weekly[weekly.length - 2]
   const delta = cur && prev && prev.reps ? Math.round(((cur.reps - prev.reps) / prev.reps) * 100) : null
@@ -179,6 +188,9 @@ function ClientDetail({ detail, code, exById, groups, exercises, pin, notify, re
           <GlowButton variant="sm ghost" onClick={async () => { try { await api.adminSetWeight(pin, code, kg ? Number(kg) : null); notify('Peso guardado'); reload() } catch (e) { notify(e.message) } }}>Guardar peso</GlowButton>
         </div>
       </div>
+
+      <RangeBar range={range} setRange={setRange} />
+      <ProgressSection progress={progress} range={range} code={code} pin={pin} notify={notify} reload={reload} />
 
       <div className="kpis">
         <Kpi label="Reps esta semana" value={cur?.reps ?? 0} delta={delta} />

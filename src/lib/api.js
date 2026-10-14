@@ -44,6 +44,8 @@ export async function loadBootstrap() {
   }
 }
 
+const tz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } catch { return 'UTC' } }
+
 export const api = {
   enterClient: (code) => rpc('ej_client_enter', { p_code: code }),
   addRoutine: (code, r) =>
@@ -52,6 +54,7 @@ export const api = {
       p_incline: r.incline_deg, p_rest: r.rest_sec, p_load: r.load_kg || 0, p_stance: r.stance || 'orthodox',
     }),
   setWeight: (code, kg) => rpc('ej_client_set_weight', { p_code: code, p_kg: kg }),
+  addAssessment: (code, data) => rpc('ej_client_add_assessment', { p_code: code, p_data: data }),
   removeRoutine: (code, id) => rpc('ej_client_remove_routine', { p_code: code, p_id: id }),
   saveSet: async (row) => {
     const { error } = await db().from('ej_sets').insert(row)
@@ -61,7 +64,12 @@ export const api = {
   adminCheck: (pin) => rpc('ej_admin_check', { p_pin: pin }),
   adminOverview: (pin) => rpc('ej_admin_overview', { p_pin: pin }),
   adminClients: (pin) => rpc('ej_admin_clients', { p_pin: pin }),
-  adminClient: (pin, code) => rpc('ej_admin_client_detail', { p_pin: pin, p_code: code }),
+  adminClient: (pin, code, from, to) =>
+    rpc('ej_admin_client_detail', { p_pin: pin, p_code: code, p_from: from || null, p_to: to || null, p_tz: tz() }),
+  adminProgress: (pin, code, from, to) =>
+    rpc('ej_admin_progress', { p_pin: pin, p_code: code, p_from: from || null, p_to: to || null, p_tz: tz() }),
+  adminAddAssessment: (pin, code, data) => rpc('ej_admin_add_assessment', { p_pin: pin, p_code: code, p_data: data }),
+  adminDeleteAssessment: (pin, id) => rpc('ej_admin_delete_assessment', { p_pin: pin, p_id: id }),
   adminRename: (pin, code, name) => rpc('ej_admin_set_client_name', { p_pin: pin, p_code: code, p_name: name }),
   adminAddRoutine: (pin, code, r) =>
     rpc('ej_admin_add_routine', {
