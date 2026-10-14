@@ -38,7 +38,7 @@ export function loadFace() {
     ])
     // Calentamiento: la primera inferencia compila los shaders
     const warm = document.createElement('canvas'); warm.width = warm.height = 160
-    await fapi.detectSingleFace(warm, new fapi.TinyFaceDetectorOptions({ inputSize: 160 })).withFaceLandmarks().withFaceDescriptor().catch(() => null)
+    try { await fapi.detectSingleFace(warm, new fapi.TinyFaceDetectorOptions({ inputSize: 160 })).withFaceLandmarks().withFaceDescriptor() } catch { /* sin rostro: solo calienta */ }
     return true
   })()
   loading.catch(() => { loading = null })
