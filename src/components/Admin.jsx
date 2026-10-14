@@ -176,7 +176,7 @@ function ClientDetail({ detail, progress, range, setRange, code, exById, groups,
   const avgAcc = accW.length ? (accW.reduce((a, w) => a + Number(w.accuracy), 0) / accW.length).toFixed(0) : null
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
       <div className="card" style={{ padding: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <span className="client-code" style={{ fontSize: 24 }}>{code}</span>
         <input className="text-input" style={{ maxWidth: 260 }} placeholder="Nombre del cliente" value={name} onChange={(e) => setName(e.target.value)} />
