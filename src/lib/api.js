@@ -44,6 +44,18 @@ export async function loadBootstrap() {
   }
 }
 
+/** Lanza una consulta de IA en el servidor y espera el resultado (consulta cada ~1,2 s). */
+async function aiJob(fn, args) {
+  const id = await rpc(fn, args)
+  for (let i = 0; i < 60; i++) {
+    await new Promise((r) => setTimeout(r, i < 2 ? 1500 : 1200))
+    const r = await rpc('ej_ai_poll', { p_job: id })
+    if (r.status === 'done') return r.data
+    if (r.status === 'error') throw new Error(r.error)
+  }
+  throw new Error('La IA tardó demasiado. Inténtalo de nuevo.')
+}
+
 const tz = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' } catch { return 'UTC' } }
 
 export const api = {
@@ -82,15 +94,15 @@ export const api = {
   adminSetExerciseActive: (pin, id, on) => rpc('ej_admin_set_exercise_active', { p_pin: pin, p_id: id, p_active: on }),
   adminClearDemo: (pin, id) => rpc('ej_admin_clear_demo', { p_pin: pin, p_id: id }),
 
-  aiTip: (code, stats) => rpc('ej_client_ai_tip', { p_code: code, p_stats: stats }),
-  aiGoals: (code) => rpc('ej_client_ai_goals', { p_code: code }),
-  aiAsk: (code, q) => rpc('ej_client_ai_ask', { p_code: code, p_q: q }),
+  aiTip: (code, stats) => aiJob('ej_client_ai_tip', { p_code: code, p_stats: stats }),
+  aiGoals: (code) => aiJob('ej_client_ai_goals', { p_code: code }),
+  aiAsk: (code, q) => aiJob('ej_client_ai_ask', { p_code: code, p_q: q }),
   adminAiSummary: (pin, code, from, to) =>
-    rpc('ej_admin_ai_summary', { p_pin: pin, p_code: code, p_from: from || null, p_to: to || null, p_tz: tz() }),
-  adminAiGoals: (pin, code) => rpc('ej_admin_ai_goals', { p_pin: pin, p_code: code }),
-  adminAiClass: (pin, text) => rpc('ej_admin_ai_class', { p_pin: pin, p_text: text }),
-  adminAiCue: (pin, name, category, joint) => rpc('ej_admin_ai_cue', { p_pin: pin, p_name: name, p_category: category || null, p_joint: joint || null }),
-  adminAiMessage: (pin, slot, kind, extra) => rpc('ej_admin_ai_message', { p_pin: pin, p_slot: slot || null, p_kind: kind, p_extra: extra || null }),
+    aiJob('ej_admin_ai_summary', { p_pin: pin, p_code: code, p_from: from || null, p_to: to || null, p_tz: tz() }),
+  adminAiGoals: (pin, code) => aiJob('ej_admin_ai_goals', { p_pin: pin, p_code: code }),
+  adminAiClass: (pin, text) => aiJob('ej_admin_ai_class', { p_pin: pin, p_text: text }),
+  adminAiCue: (pin, name, category, joint) => aiJob('ej_admin_ai_cue', { p_pin: pin, p_name: name, p_category: category || null, p_joint: joint || null }),
+  adminAiMessage: (pin, slot, kind, extra) => aiJob('ej_admin_ai_message', { p_pin: pin, p_slot: slot || null, p_kind: kind, p_extra: extra || null }),
 
   classes: (code) => rpc('ej_client_classes', { p_code: code }),
   bookClass: (code, slot) => rpc('ej_client_book', { p_code: code, p_slot: slot }),
