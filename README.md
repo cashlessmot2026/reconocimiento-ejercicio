@@ -54,3 +54,9 @@ No se guarda video: solo los puntos del cuerpo (`ej_exercises.ghost`, `template`
 ## Añadir ejercicios
 Inserta una fila en `ej_exercises` indicando los landmarks A-B-C (índices MediaPipe) de cada lado,
 el ángulo de reposo (`rest_angle`) y el de máxima contracción (`peak_angle`). La app lo detecta sin cambiar código.
+
+## Reserva de clases
+
+El coach crea horarios desde **📅 Clases** (día, hora, duración, cupo, tipo, rutina o ejercicios, repetición semanal) y los define
+como *abiertos*, para un *grupo* de alumnos o *individuales*. El cliente, al ingresar con su código, ve un banner animado y solo
+las horas con cupo. Migración: `supabase/migration_009.sql`.

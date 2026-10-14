@@ -446,3 +446,57 @@ html[data-tv='on'] { --ui: 1.25; --hud: 1.4; }
 @media (prefers-reduced-motion: reduce) {
   .glow-btn::before, .ex-card::before, .aurora { animation: none; }
 }
+
+/* ---------- Reserva de clases ---------- */
+.class-banner {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; margin: 22px 0 0; padding: 16px 18px;
+  border-radius: var(--radius); border: 1px solid rgba(34,211,238,.35); cursor: pointer; text-align: left; overflow: hidden;
+  background: linear-gradient(110deg, rgba(34,211,238,.16), rgba(167,139,250,.18), rgba(251,113,133,.14), rgba(34,211,238,.16));
+  background-size: 300% 100%; animation: cb-flow 9s linear infinite;
+}
+@keyframes cb-flow { to { background-position: -300% 0; } }
+.cb-glow { position: absolute; inset: 0; background: radial-gradient(120px 60px at 0% 50%, rgba(34,211,238,.35), transparent 70%); animation: cb-pulse 2.6s ease-in-out infinite; pointer-events: none; }
+@keyframes cb-pulse { 50% { opacity: .3; } }
+.cb-icon { position: relative; font-size: 34px; animation: cb-bob 2.4s ease-in-out infinite; }
+@keyframes cb-bob { 50% { transform: translateY(-4px) rotate(-6deg); } }
+.cb-body { position: relative; flex: 1; min-width: 0; display: grid; gap: 4px; }
+.cb-kicker { font-size: 11px; letter-spacing: .16em; color: var(--accent); font-weight: 700; }
+.cb-main { font-size: clamp(15px, 2vw, 19px); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cb-spots { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: rgba(52,211,153,.16); color: var(--ok); }
+.cb-spots.low { background: rgba(251,191,36,.16); color: var(--warn); }
+.cb-spots.mine { background: rgba(34,211,238,.2); color: var(--accent); }
+.cb-cta { position: relative; font-weight: 700; white-space: nowrap; }
+.cb-dots { position: absolute; left: 0; right: 0; bottom: 5px; display: flex; justify-content: center; gap: 5px; }
+.cb-dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.25); transition: all .3s; }
+.cb-dots i.on { width: 16px; border-radius: 4px; background: var(--accent); }
+.book-sheet { width: min(720px, 100%); }
+.day-strip { display: flex; gap: 8px; overflow-x: auto; padding: 14px 0 6px; scrollbar-width: thin; }
+.day-pill { flex: none; display: grid; gap: 1px; padding: 8px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255,255,255,.04); cursor: pointer; text-align: center; font-weight: 700; text-transform: capitalize; }
+.day-pill small { font-weight: 500; color: var(--muted); }
+.day-pill.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #041018; border-color: transparent; }
+.day-pill.on small { color: #041018; }
+.slot-list { display: grid; gap: 10px; margin-top: 10px; }
+.slot-card { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 14px; }
+.slot-card.mine { border-color: rgba(52,211,153,.5); }
+.slot-time { font-size: 22px; font-weight: 700; display: grid; text-align: center; }
+.slot-time small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.slot-act { display: grid; gap: 6px; }
+.slot-ex { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.cap-bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,.08); margin-top: 8px; overflow: hidden; max-width: 220px; }
+.cap-bar i { display: block; height: 100%; background: var(--ok); transition: width .4s; }
+.cap-bar i.low { background: var(--warn); }
+.cls-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+.cls-ex { display: grid; gap: 6px; padding: 10px; margin-top: 8px; border-radius: 12px; border: 1px solid var(--line); background: rgba(255,255,255,.03); }
+.cls-ex-ctl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12px; }
+.cls-row { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; padding: 12px 14px; margin-bottom: 8px; }
+.cls-time { font-size: 20px; font-weight: 700; display: grid; text-align: center; }
+.cls-time small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.chip-x { border: 0; background: transparent; color: var(--hot); cursor: pointer; padding: 0 0 0 4px; }
+@media (max-width: 640px) {
+  .cls-form { grid-template-columns: 1fr; }
+  .slot-card { grid-template-columns: auto 1fr; }
+  .slot-act { grid-column: 1 / -1; grid-auto-flow: column; }
+  .cb-cta { display: none; }
+  .cls-row { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) { .class-banner, .cb-glow, .cb-icon { animation: none; } }

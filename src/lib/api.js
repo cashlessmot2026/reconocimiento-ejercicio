@@ -81,4 +81,12 @@ export const api = {
   adminSaveExercise: (pin, data) => rpc('ej_admin_save_exercise', { p_pin: pin, p_data: data }),
   adminSetExerciseActive: (pin, id, on) => rpc('ej_admin_set_exercise_active', { p_pin: pin, p_id: id, p_active: on }),
   adminClearDemo: (pin, id) => rpc('ej_admin_clear_demo', { p_pin: pin, p_id: id }),
+
+  classes: (code) => rpc('ej_client_classes', { p_code: code }),
+  bookClass: (code, slot) => rpc('ej_client_book', { p_code: code, p_slot: slot }),
+  cancelClass: (code, slot) => rpc('ej_client_cancel_booking', { p_code: code, p_slot: slot }),
+  adminClasses: (pin) => rpc('ej_admin_classes', { p_pin: pin }),
+  adminSaveClass: (pin, data) => rpc('ej_admin_save_class', { p_pin: pin, p_data: data }),
+  adminDeleteClass: (pin, id) => rpc('ej_admin_delete_class', { p_pin: pin, p_id: id }),
+  adminClassMember: (pin, slot, code, add) => rpc('ej_admin_class_member', { p_pin: pin, p_slot: slot, p_code: code, p_add: add }),
 }

@@ -9,6 +9,7 @@ import { GlowButton, Stepper, fmtDate } from './ui'
 import BodyMap from './BodyMap'
 import ProgressSection, { RangeBar, emptyRange } from './Progress'
 import ExerciseLibrary from './ExerciseLibrary'
+import ClassManager from './ClassManager'
 
 const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
 
@@ -27,6 +28,7 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
   const [q, setQ] = useState('')
   const [loading, setLoading] = useState(false)
   const [libOpen, setLibOpen] = useState(false)
+  const [clsOpen, setClsOpen] = useState(false)
 
   const loadAll = useCallback(async () => {
     try {
@@ -61,6 +63,7 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
           <span className="muted">Analítica de clientes y progreso semanal</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <GlowButton variant="sm solid" onClick={() => setClsOpen(true)}>📅 Clases</GlowButton>
           <GlowButton variant="sm solid" onClick={() => setLibOpen(true)}>🎓 Ejercicios</GlowButton>
           <GlowButton variant="sm ghost" onClick={() => { loadAll(); loadDetail(sel) }}>↻ Actualizar</GlowButton>
           <GlowButton variant="sm hot" onClick={onLock}>🔒 Bloquear</GlowButton>
@@ -124,6 +127,7 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
           {!detail && <div className="card" style={{ padding: 24 }}><span className="muted">Selecciona un cliente.</span></div>}
         </div>
       </div>
+      <ClassManager open={clsOpen} onClose={() => setClsOpen(false)} boot={boot} pin={pin} notify={notify} />
       <ExerciseLibrary open={libOpen} onClose={() => setLibOpen(false)} boot={boot} pin={pin} notify={notify} onChanged={() => onReloadBoot?.()} />
     </>
   )

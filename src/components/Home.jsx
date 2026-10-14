@@ -7,6 +7,7 @@ import AssessmentForm from './AssessmentForm'
 import { camPref } from '../lib/display'
 import GhostFigure from './GhostFigure'
 import { BMI_COLOR } from '../lib/body'
+import { BookingSheet, ClassBanner, useClasses } from './Classes'
 
 const toItem = (ex, r) => ({
   exercise: ex, sets: r.sets, reps: r.reps, incline_deg: r.incline_deg, rest_sec: r.rest_sec,
@@ -18,6 +19,8 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [cat, setCat] = useState('Todos')
   const [config, setConfig] = useState(null)
+  const [bookOpen, setBookOpen] = useState(false)
+  const { slots, reload: reloadSlots } = useClasses(client)
   const cats = useMemo(() => ['Todos', ...new Set(exercises.map((e) => e.category))], [exercises])
   const shown = cat === 'Todos' ? exercises : exercises.filter((e) => e.category === cat)
 
@@ -66,6 +69,20 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
           <CodeGate copy={copy} client={client} onEnter={onEnter} onLogout={onLogout} notify={notify} />
         </motion.div>
       </section>
+
+      {client && <ClassBanner slots={slots} onOpen={() => { setBookOpen(true); reloadSlots() }} />}
+      {client && (
+        <BookingSheet
+          open={bookOpen}
+          onClose={() => setBookOpen(false)}
+          client={client}
+          slots={slots}
+          reload={reloadSlots}
+          boot={boot}
+          notify={notify}
+          onStartClass={(s, items) => onStart({ queue: items.map(({ r, ex }) => toItem(ex, r)) })}
+        />
+      )}
 
       <AnimatePresence>
         {client && (
