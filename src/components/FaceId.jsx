@@ -102,7 +102,14 @@ function FaceInner({ mode, code, mandatory, consentText, onClose, onIdentified, 
   async function next() {
     const v = videoRef.current
     if (!runRef.current || !v) throw new Error('cancel')
-    await new Promise((r) => (v.requestVideoFrameCallback ? v.requestVideoFrameCallback(() => r()) : requestAnimationFrame(() => r())))
+    // Nuevo fotograma de la cámara; si el navegador no lo notifica (ventana oculta, ahorro de energía), respaldo por temporizador
+    await new Promise((r) => {
+      let done = false
+      const fin = () => { if (!done) { done = true; r() } }
+      if (v.requestVideoFrameCallback) v.requestVideoFrameCallback(fin)
+      else requestAnimationFrame(fin)
+      setTimeout(fin, 90)
+    })
     if (!runRef.current) throw new Error('cancel')
     const now = performance.now()
     const f = trackFace(v, now)

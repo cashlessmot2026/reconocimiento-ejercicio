@@ -78,8 +78,15 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
       if (stop) return
       handle = useVFC ? v.requestVideoFrameCallback(tick) : requestAnimationFrame(tick)
     }
+    let lastProcess = performance.now()
     const tick = () => {
       schedule()
+      process()
+    }
+    // Respaldo: si el navegador deja de notificar fotogramas (ventana oculta, ahorro de energía)
+    const watchdog = setInterval(() => { if (performance.now() - lastProcess > 200) process() }, 100)
+    const process = () => {
+      lastProcess = performance.now()
       const c = canvasRef.current, det = lmRef.current
       if (!c || !det || v.readyState < 2 || v.currentTime === lastT) return
       lastT = v.currentTime
@@ -101,6 +108,7 @@ export function usePoseCamera({ onFrame, smoothing = { minCutoff: 1.2, beta: 8 }
     schedule()
     return () => {
       stop = true
+      clearInterval(watchdog)
       if (useVFC) v.cancelVideoFrameCallback?.(handle)
       else cancelAnimationFrame(handle)
     }
