@@ -1,14 +1,37 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { GlowButton } from './ui'
+import { AiTextModal } from './AiParts'
+import { api } from '../lib/api'
 import Workout from './Workout'
 import Boxing from './Boxing'
+
+const r1 = (n) => (n == null ? null : Math.round(Number(n) * 10) / 10)
+
+/** Resumen compacto y anónimo de la sesión para la IA. */
+function sessionStats(rows, boot) {
+  const by = {}
+  rows.forEach((r) => {
+    const ex = boot.exercises.find((e) => e.id === r.exercise_id)
+    const k = r.exercise_id
+    by[k] = by[k] || { ejercicio: ex?.name || k, tipo: ex?.kind, series: [] }
+    const sims = (r.rep_log || []).map((x) => x.similarity).filter((v) => v != null)
+    by[k].series.push({
+      reps: r.reps, objetivo: r.target_reps, forma: r1(r.form_score), rom_grados: r1(r.avg_rom),
+      seg_por_rep: r1(r.avg_rep_sec), fatiga_pct: r1(r.fatigue_pct), carga_kg: r.load_kg || 0, inclinacion: r.incline_deg,
+      similitud_demo: sims.length ? r1(sims.reduce((a, b) => a + b, 0) / sims.length) : null,
+      velocidad_golpe: r1(r.avg_punch_speed), precision_pct: r1(r.accuracy), guardia_pct: r1(r.guard_pct),
+    })
+  })
+  return { ejercicios: Object.values(by).slice(0, 6).map((e) => ({ ...e, series: e.series.slice(0, 6) })) }
+}
 
 /** Ejecuta la cola de ejercicios (fuerza y boxeo) y muestra el resumen final. */
 export default function Session({ boot, client, plan, onExit, notify }) {
   const [qi, setQi] = useState(0)
   const [rows, setRows] = useState([])
   const [done, setDone] = useState(false)
+  const [tipOpen, setTipOpen] = useState(false)
   const item = plan.queue[qi]
   const isLast = qi === plan.queue.length - 1
 
@@ -36,7 +59,12 @@ export default function Session({ boot, client, plan, onExit, notify }) {
               <div className="stat"><b>{rows.reduce((a, r) => a + (r.kcal || 0), 0).toFixed(1)}</b><span>kcal</span></div>
             </div>
             <p className="muted">Registrado en el cliente <b className="mono">{client.code}</b></p>
-            <GlowButton variant="solid" onClick={onExit}>Volver al inicio</GlowButton>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <GlowButton variant="ghost" onClick={() => setTipOpen(true)}>✨ Comentario de técnica con IA</GlowButton>
+              <GlowButton variant="solid" onClick={onExit}>Volver al inicio</GlowButton>
+            </div>
+            <AiTextModal open={tipOpen} onClose={() => setTipOpen(false)} title="Comentario de tu entrenador"
+              hint="Basado en los números de tu sesión (sin datos personales)." run={() => api.aiTip(client.code, sessionStats(rows, boot))} />
           </motion.div>
         </div>
       </motion.div>

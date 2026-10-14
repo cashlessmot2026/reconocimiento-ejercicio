@@ -29,6 +29,7 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
   const [rec, setRec] = useState(null) // { frames, aspect, mirrored }
   const [opts, setOpts] = useState({ invert: false, joint: null, adjust: false })
   const [busy, setBusy] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const categories = useMemo(() => [...new Set(['Personalizado', ...exercises.map((e) => e.category)])], [exercises])
@@ -168,6 +169,15 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
                 </select>
               </label>
             )}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <GlowButton variant="sm ghost" type="button" disabled={aiBusy || info.name.trim().length < 2} onClick={async () => {
+                setAiBusy(true)
+                try {
+                  const r = await api.adminAiCue(pin, info.name.trim(), info.category, null)
+                  setInfo((s2) => ({ ...s2, cue: r.cue || s2.cue, camera_hint: r.camera_hint || s2.camera_hint }))
+                } catch (e) { notify(e.message) } finally { setAiBusy(false) }
+              }}>{aiBusy ? 'Generando…' : '✨ Redactar indicación y cámara con IA'}</GlowButton>
+            </div>
             <label className="fld" style={{ gridColumn: '1 / -1' }}>
               <span>Indicación técnica para el cliente</span>
               <input className="text-input" maxLength={120} value={info.cue} onChange={(e) => setI('cue', e.target.value)} placeholder="Ej.: Espalda recta, sube el codo hasta la cadera" />

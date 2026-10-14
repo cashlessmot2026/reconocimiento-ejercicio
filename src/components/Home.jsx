@@ -7,6 +7,7 @@ import AssessmentForm from './AssessmentForm'
 import { camPref } from '../lib/display'
 import GhostFigure from './GhostFigure'
 import { BMI_COLOR } from '../lib/body'
+import { AiTextModal, AskModal } from './AiParts'
 import { BookingSheet, ClassBanner, useClasses } from './Classes'
 
 const toItem = (ex, r) => ({
@@ -201,6 +202,8 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
   const [busy, setBusy] = useState(false)
   const [weight, setWeight] = useState('')
   const [assessOpen, setAssessOpen] = useState(false)
+  const [goalsOpen, setGoalsOpen] = useState(false)
+  const [askOpen, setAskOpen] = useState(false)
   const [camP, setCamP] = useState(() => camPref.get())
   const refs = [useRef(), useRef(), useRef(), useRef()]
 
@@ -266,6 +269,13 @@ function CodeGate({ copy, client, onEnter, onLogout, notify }) {
         <GlowButton variant={client.assessment ? 'ghost' : 'solid ok'} onClick={() => setAssessOpen(true)}>
           📋 {client.assessment ? 'Actualizar mi evaluación física' : 'Completar mi evaluación física'}
         </GlowButton>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <GlowButton variant="ghost" disabled={!client.assessment} onClick={() => setGoalsOpen(true)}>🎯 Mis objetivos (IA)</GlowButton>
+          <GlowButton variant="ghost" onClick={() => setAskOpen(true)}>💬 Preguntar (IA)</GlowButton>
+        </div>
+        <AiTextModal open={goalsOpen} onClose={() => setGoalsOpen(false)} title="Mi plan de objetivos"
+          hint="Calculado a partir de tu evaluación física." run={() => api.aiGoals(client.code)} />
+        <AskModal open={askOpen} onClose={() => setAskOpen(false)} ask={(q) => api.aiAsk(client.code, q)} />
         <Modal open={assessOpen} onClose={() => setAssessOpen(false)} className="assess-sheet">
           {assessOpen && (
             <AssessmentForm

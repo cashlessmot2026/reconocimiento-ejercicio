@@ -500,3 +500,5 @@ html[data-tv='on'] { --ui: 1.25; --hud: 1.4; }
   .cls-row { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .class-banner, .cb-glow, .cb-icon { animation: none; } }
+
+.ai-text { white-space: pre-wrap; line-height: 1.55; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(167,139,250,.4); background: rgba(167,139,250,.08); }

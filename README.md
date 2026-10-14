@@ -60,3 +60,9 @@ el ángulo de reposo (`rest_angle`) y el de máxima contracción (`peak_angle`).
 El coach crea horarios desde **📅 Clases** (día, hora, duración, cupo, tipo, rutina o ejercicios, repetición semanal) y los define
 como *abiertos*, para un *grupo* de alumnos o *individuales*. El cliente, al ingresar con su código, ve un banner animado y solo
 las horas con cupo. Migración: `supabase/migration_009.sql`.
+
+## IA con Gemini
+
+Comentario de técnica tras la serie, resumen y objetivos por cliente, armar clases desde texto, redactar indicaciones de ejercicios,
+mensajes para alumnos y asistente de preguntas. Corre en el servidor (`supabase/migration_010.sql`, extensión `http`); la clave de
+Gemini vive en la tabla `ej_ai_config` (sin acceso con la clave pública) y nunca en el código. Solo se envían métricas anónimas.

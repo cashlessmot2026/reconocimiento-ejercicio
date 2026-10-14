@@ -10,6 +10,7 @@ import BodyMap from './BodyMap'
 import ProgressSection, { RangeBar, emptyRange } from './Progress'
 import ExerciseLibrary from './ExerciseLibrary'
 import ClassManager from './ClassManager'
+import { AiTextModal } from './AiParts'
 
 const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
 
@@ -170,6 +171,7 @@ function ClientDetail({ detail, progress, range, setRange, code, exById, groups,
   const stackData = Object.values(stack).sort((a, b) => a.week.localeCompare(b.week))
 
   const [name, setName] = useState(detail.client?.name || '')
+  const [aiMode, setAiMode] = useState(null)
   const [kg, setKg] = useState('')
   useEffect(() => { setName(detail.client?.name || ''); setKg(detail.client?.body_weight_kg ?? '') }, [detail])
 
@@ -196,6 +198,15 @@ function ClientDetail({ detail, progress, range, setRange, code, exById, groups,
           <GlowButton variant="sm ghost" onClick={async () => { try { await api.adminSetWeight(pin, code, kg ? Number(kg) : null); notify('Peso guardado'); reload() } catch (e) { notify(e.message) } }}>Guardar peso</GlowButton>
         </div>
       </div>
+
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <GlowButton variant="sm solid" onClick={() => setAiMode('summary')}>✨ Resumen IA del cliente</GlowButton>
+        <GlowButton variant="sm ghost" onClick={() => setAiMode('goals')}>🎯 Objetivos IA</GlowButton>
+      </div>
+      <AiTextModal open={!!aiMode} onClose={() => setAiMode(null)} copyable
+        title={aiMode === 'goals' ? `Objetivos · ${code}` : `Resumen · ${code}`}
+        hint={aiMode === 'goals' ? 'Según la última evaluación física.' : 'Según el periodo seleccionado. Se envían solo métricas, sin nombre ni código.'}
+        run={() => (aiMode === 'goals' ? api.adminAiGoals(pin, code) : api.adminAiSummary(pin, code, range.from, range.to))} />
 
       <RangeBar range={range} setRange={setRange} />
       <ProgressSection progress={progress} range={range} code={code} pin={pin} notify={notify} reload={reload} />

@@ -82,6 +82,16 @@ export const api = {
   adminSetExerciseActive: (pin, id, on) => rpc('ej_admin_set_exercise_active', { p_pin: pin, p_id: id, p_active: on }),
   adminClearDemo: (pin, id) => rpc('ej_admin_clear_demo', { p_pin: pin, p_id: id }),
 
+  aiTip: (code, stats) => rpc('ej_client_ai_tip', { p_code: code, p_stats: stats }),
+  aiGoals: (code) => rpc('ej_client_ai_goals', { p_code: code }),
+  aiAsk: (code, q) => rpc('ej_client_ai_ask', { p_code: code, p_q: q }),
+  adminAiSummary: (pin, code, from, to) =>
+    rpc('ej_admin_ai_summary', { p_pin: pin, p_code: code, p_from: from || null, p_to: to || null, p_tz: tz() }),
+  adminAiGoals: (pin, code) => rpc('ej_admin_ai_goals', { p_pin: pin, p_code: code }),
+  adminAiClass: (pin, text) => rpc('ej_admin_ai_class', { p_pin: pin, p_text: text }),
+  adminAiCue: (pin, name, category, joint) => rpc('ej_admin_ai_cue', { p_pin: pin, p_name: name, p_category: category || null, p_joint: joint || null }),
+  adminAiMessage: (pin, slot, kind, extra) => rpc('ej_admin_ai_message', { p_pin: pin, p_slot: slot || null, p_kind: kind, p_extra: extra || null }),
+
   classes: (code) => rpc('ej_client_classes', { p_code: code }),
   bookClass: (code, slot) => rpc('ej_client_book', { p_code: code, p_slot: slot }),
   cancelClass: (code, slot) => rpc('ej_client_cancel_booking', { p_code: code, p_slot: slot }),

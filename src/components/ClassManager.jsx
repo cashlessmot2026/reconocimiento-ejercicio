@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { GlowButton, Modal, Stepper } from './ui'
 import { classIcon, fmtDayLong } from './Classes'
+import { AiTextModal } from './AiParts'
 
 const TYPES = ['Fuerza', 'Boxeo', 'Funcional', 'Cardio', 'Movilidad', 'Personalizada']
 const AUD = [['abierta', '🌐 Abierta (reservan los clientes)'], ['grupo', '👥 Grupo de alumnos'], ['individual', '🎯 Individual']]
@@ -20,6 +21,10 @@ export default function ClassManager({ open, onClose, boot, pin, notify }) {
   const [form, setForm] = useState(blank)
   const [creating, setCreating] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [aiText, setAiText] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [msgSlot, setMsgSlot] = useState(null)
+  const [msgKind, setMsgKind] = useState('recordatorio')
   const [addCode, setAddCode] = useState({})
   const exercises = boot.exercises.filter((e) => e.active !== false)
   const exById = useMemo(() => Object.fromEntries(boot.exercises.map((e) => [e.id, e])), [boot.exercises])
@@ -96,6 +101,22 @@ export default function ClassManager({ open, onClose, boot, pin, notify }) {
 
       {creating && (
         <div className="card" style={{ padding: 16, marginBottom: 16 }}>
+          <div className="field" style={{ marginTop: 0 }}>
+            <label>✨ Armar con IA (describe la clase)</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input className="text-input" style={{ flex: 1, minWidth: 220 }} value={aiText} onChange={(e) => setAiText(e.target.value)}
+                placeholder="Clase de 45 min, tren superior, nivel principiante, 8 personas" />
+              <GlowButton variant="sm solid" disabled={aiBusy || aiText.trim().length < 5} onClick={async () => {
+                setAiBusy(true)
+                try {
+                  const r = await api.adminAiClass(pin, aiText.trim())
+                  setForm((f) => ({ ...f, title: r.title, class_type: r.class_type, duration_min: r.duration_min, capacity: r.capacity,
+                    audience: r.audience, routine: r.routine, notes: r.notes }))
+                  notify('✓ Propuesta lista: revisa y ajusta antes de crear')
+                } catch (e) { notify(e.message) } finally { setAiBusy(false) }
+              }}>{aiBusy ? 'Pensando…' : 'Generar'}</GlowButton>
+            </div>
+          </div>
           <div className="cls-form">
             <div className="field"><label>Nombre de la clase</label>
               <input className="text-input" placeholder="Ej. Fuerza tren superior" value={form.title} onChange={(e) => set('title', e.target.value)} /></div>
@@ -190,12 +211,24 @@ export default function ClassManager({ open, onClose, boot, pin, notify }) {
                     )}
                   </div>
                 </div>
-                <GlowButton variant="sm hot ghost" onClick={() => del(s)}>Eliminar</GlowButton>
+                <div style={{ display: 'grid', gap: 6 }}>
+                  <GlowButton variant="sm ghost" onClick={() => setMsgSlot(s)}>💬 Mensaje</GlowButton>
+                  <GlowButton variant="sm hot ghost" onClick={() => del(s)}>Eliminar</GlowButton>
+                </div>
               </div>
             )
           })}
         </div>
       ))}
+      <AiTextModal open={!!msgSlot} onClose={() => setMsgSlot(null)} copyable title="Mensaje para tus alumnos"
+        hint={msgSlot ? `${msgSlot.title} · ${time(msgSlot.starts_at)}` : ''}
+        run={() => api.adminAiMessage(pin, msgSlot?.id, msgKind)}>
+        <div className="seg" style={{ marginTop: 12 }}>
+          {[['recordatorio', '⏰ Recordatorio'], ['motivacion', '🔥 Motivación']].map(([k, l]) => (
+            <button key={k} type="button" className={msgKind === k ? 'on' : ''} onClick={() => setMsgKind(k)}>{l}</button>
+          ))}
+        </div>
+      </AiTextModal>
     </Modal>
   )
 }
