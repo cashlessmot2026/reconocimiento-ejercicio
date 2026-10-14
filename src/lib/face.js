@@ -130,7 +130,14 @@ function cropStats(video, box) {
 export async function openCamera(video) {
   try { return await navigator.mediaDevices.getUserMedia({ audio: false, video }) } catch (e) {
     if (e.name === 'NotAllowedError') throw e
-    return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: video.facingMode || 'user' } })
+    let last = e
+    try { return await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: video.facingMode || 'user' } }) } catch (e2) { last = e2 }
+    // Si la cámara por defecto está ocupada, probar cada una de las demás cámaras disponibles
+    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput' && d.deviceId)
+    for (const cam of cams) {
+      try { return await navigator.mediaDevices.getUserMedia({ audio: false, video: { deviceId: { exact: cam.deviceId } } }) } catch (e3) { last = e3 }
+    }
+    throw last
   }
 }
 
