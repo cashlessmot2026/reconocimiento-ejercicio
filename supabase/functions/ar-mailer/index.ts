@@ -1,7 +1,7 @@
 // Edge Function: envía los correos de AR-COMBAT por Gmail (SMTP con contraseña de aplicación).
 //
 // Secretos (Supabase → Edge Functions → Secrets). NUNCA van en el código ni en el repositorio:
-//   GMAIL_USER          cuenta de Gmail que envía (ej. cashlesscolombia@gmail.com)
+//   GMAIL_USER          cuenta de Gmail que envía los correos
 //   GMAIL_APP_PASSWORD  contraseña de aplicación de 16 caracteres (sin espacios)
 //   MAILER_SECRET       texto largo y aleatorio; el mismo valor va en ej_mail_config.secret
 //
