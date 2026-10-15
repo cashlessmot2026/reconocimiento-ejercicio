@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
-import { fmtCOP } from '../lib/site'
+import { fmtCOP, waLink } from '../lib/site'
 import { GlowButton, Modal } from './ui'
 
 const STATUS = {
@@ -25,6 +25,8 @@ export default function MembersPanel({ open, onClose, pin, site, notify, onChang
   const [q, setQ] = useState('')
   const [form, setForm] = useState({ name: '', email: '', phone: '', plan: '', code: '', notify: true })
   const [created, setCreated] = useState(null)
+  const [approved, setApproved] = useState(null) // { code, name, phone, plan }
+  const [copied, setCopied] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   const load = useCallback(async () => {
@@ -51,6 +53,7 @@ export default function MembersPanel({ open, onClose, pin, site, notify, onChang
     try {
       await api.adminReviewPayment(pin, p.id, approve, note[p.id])
       notify(approve ? `✓ Pago aprobado: el cliente ${p.code} ya tiene acceso` : 'Pago rechazado')
+      if (approve) { setApproved({ code: p.code, name: p.name, phone: p.phone, plan: p.plan_name }); setCopied(false) }
       setProof(null); await load(); onChanged?.()
     } catch (e) { notify(e.message) } finally { setBusy(null) }
   }
@@ -67,6 +70,12 @@ export default function MembersPanel({ open, onClose, pin, site, notify, onChang
 
   const setStatus = async (m, status) => {
     try { await api.adminUpdateMember(pin, m.code, { status }); await load(); onChanged?.() } catch (e) { notify(e.message) }
+  }
+
+  const msgFor = (a) =>
+    `Hola ${a.name || ''}, tu pago del ${a.plan || 'plan'} en ${site.brand.name} fue aprobado ✅. Tu código de acceso es: ${a.code}. Ingresa aquí: ${window.location.origin}${window.location.pathname}`
+  const copyCode = async (a) => {
+    try { await navigator.clipboard.writeText(a.code); setCopied(true) } catch { notify(`Código: ${a.code}`) }
   }
 
   const shownMembers = members.filter((m) => {
@@ -92,6 +101,23 @@ export default function MembersPanel({ open, onClose, pin, site, notify, onChang
 
       {tab === 'pagos' && (
         <div style={{ display: 'grid', gap: 10 }}>
+          {approved && (
+            <div className="card" style={{ padding: 16, borderColor: 'var(--ok)' }}>
+              <div className="muted" style={{ fontSize: 12, letterSpacing: '.12em' }}>PAGO APROBADO · ACCESO ACTIVO</div>
+              <div className="mono" style={{ fontSize: 40, fontWeight: 700, color: 'var(--accent)' }}>{approved.code}</div>
+              <div className="muted" style={{ marginBottom: 10 }}>
+                {approved.name || 'Cliente'} · Se envió el aviso por correo. Si no le llega, entrégale el código por aquí:
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <GlowButton variant="sm" onClick={() => copyCode(approved)}>{copied ? '✓ Copiado' : '📋 Copiar código'}</GlowButton>
+                {waLink(approved.phone) && (
+                  <a className="glow-btn sm solid ok" href={waLink(approved.phone, msgFor(approved))} target="_blank" rel="noreferrer">💬 Enviar por WhatsApp</a>
+                )}
+                {!waLink(approved.phone) && <span className="muted" style={{ fontSize: 12 }}>El cliente no dejó teléfono: copia el código y envíaselo.</span>}
+                <GlowButton variant="sm ghost" onClick={() => setApproved(null)}>Cerrar</GlowButton>
+              </div>
+            </div>
+          )}
           {payments.length === 0 && <div className="card" style={{ padding: 16 }}><span className="muted">Aún no hay pagos.</span></div>}
           {payments.map((p) => (
             <div key={p.id} className="card pay-row">

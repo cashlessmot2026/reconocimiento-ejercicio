@@ -104,3 +104,11 @@ export function useSite() {
   }
   return [site, refresh]
 }
+
+// Enlace de WhatsApp a partir de un número escrito libremente. 10 dígitos = Colombia (+57).
+export const waLink = (number, text = '') => {
+  let d = String(number || '').replace(/\D/g, '').replace(/^00/, '')
+  if (d.length === 10) d = '57' + d
+  if (d.length < 8) return ''
+  return `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ''}`
+}

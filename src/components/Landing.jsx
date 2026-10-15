@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { api } from '../lib/api'
-import { fmtCOP } from '../lib/site'
+import { fmtCOP, waLink } from '../lib/site'
 import { compressImage, fileToDataUrl } from '../lib/image'
 import { GlowButton, Modal } from './ui'
 import { Img } from './Media'
@@ -142,7 +142,11 @@ export default function Landing({ site, onEnter, onBrandTap, notify }) {
           <div className="l-contact-list">
             {site.contact.address && <div>📍 {site.contact.address}</div>}
             {site.contact.schedule && <div>🕒 {site.contact.schedule}</div>}
-            {site.contact.whatsapp && <div>💬 {site.contact.whatsapp}</div>}
+            {site.contact.whatsapp && (
+              <div>💬 {waLink(site.contact.whatsapp)
+                ? <a className="link" href={waLink(site.contact.whatsapp, `Hola ${site.brand.name}, quiero información`)} target="_blank" rel="noreferrer">{site.contact.whatsapp}</a>
+                : site.contact.whatsapp}</div>
+            )}
             {site.contact.instagram && <div>📸 {site.contact.instagram}</div>}
             {site.contact.email && <div>✉️ {site.contact.email}</div>}
             {!site.contact.address && !site.contact.schedule && !site.contact.whatsapp && !site.contact.instagram && !site.contact.email && (
