@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const base = process.env.VITE_BASE || '/reconocimiento-ejercicio-v2/'
+const base = process.env.VITE_BASE || '/reconocimiento-ejercicio/'
 
 export default defineConfig({
   base,

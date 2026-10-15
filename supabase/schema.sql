@@ -1,5 +1,5 @@
 -- =====================================================================
---  KINETIC · Reconocimiento de ejercicio  —  esquema Supabase
+--  AR-COMBAT · Gimnasio de boxeo  —  esquema Supabase
 --  Ejecutar completo en el SQL Editor del proyecto.
 -- =====================================================================
 create extension if not exists pgcrypto;
@@ -271,7 +271,7 @@ insert into ej_admin_secret(id, pin_hash) values (1, crypt('1234', gen_salt('bf'
 on conflict (id) do update set pin_hash = excluded.pin_hash;
 
 insert into ej_config(key, value) values
- ('brand', '{"name":"KINETIC","tagline":"Visión artificial para tu entrenamiento","accent":"#22d3ee"}'),
+ ('brand', '{"name":"AR-COMBAT","tagline":"Gimnasio de boxeo · entrenamiento medido","accent":"#22d3ee"}'),
  ('copy',  '{"enter_code":"Número de cliente","enter_hint":"Ingresa tu código de 4 dígitos para registrar cada repetición","start":"Iniciar","choose":"Elige tu ejercicio","my_routine":"Mi rutina","catalog":"Catálogo","camera_tip":"Colócate de cuerpo completo frente a la cámara","admin_title":"Panel del coach"}'),
  ('phases', '{"idle":"LISTO","loading":"CARGANDO","concentric":"SUBIDA","hold":"PICO","eccentric":"BAJADA","rest":"DESCANSO","lost":"SIN CUERPO"}')
 on conflict (key) do update set value = excluded.value;

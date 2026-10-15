@@ -1,6 +1,6 @@
 # AR-COMBAT · Puesta en marcha
 
-Esta copia está pensada para conectarse a **otra base de datos** (no toca la de KINETIC).
+Esta copia está pensada para conectarse a **otra base de datos** (no toca la anterior).
 La página principal funciona sin base de datos con el contenido por defecto; todo lo demás
 (suscripciones, panel, clientes, correos) se activa al conectarla.
 

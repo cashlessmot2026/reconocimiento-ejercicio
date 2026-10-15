@@ -68,8 +68,8 @@ export function applyTvMode(v) {
   else delete el.dataset.tv
 }
 export function useTvMode() {
-  const [mode, setMode] = useState(() => prefs.get('kinetic.tv', ''))
-  const set = useCallback((v) => { prefs.set('kinetic.tv', v); applyTvMode(v); setMode(v) }, [])
+  const [mode, setMode] = useState(() => prefs.get('arcombat.tv', ''))
+  const set = useCallback((v) => { prefs.set('arcombat.tv', v); applyTvMode(v); setMode(v) }, [])
   return [mode, set]
 }
 
@@ -92,6 +92,6 @@ export function useWakeLock(active) {
 
 // ---------- Cámara preferida (frontal / trasera) ----------
 export const camPref = {
-  get() { return prefs.get('kinetic.cam', 'user') === 'environment' ? 'environment' : 'user' },
-  set(v) { prefs.set('kinetic.cam', v === 'environment' ? 'environment' : 'user') },
+  get() { return prefs.get('arcombat.cam', 'user') === 'environment' ? 'environment' : 'user' },
+  set(v) { prefs.set('arcombat.cam', v === 'environment' ? 'environment' : 'user') },
 }

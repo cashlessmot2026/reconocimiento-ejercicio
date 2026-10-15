@@ -5,7 +5,7 @@ import App from './App.jsx'
 import './styles.css'
 import { applyTvMode, prefs } from './lib/display'
 
-applyTvMode(prefs.get('kinetic.tv', ''))
+applyTvMode(prefs.get('arcombat.tv', ''))
 
 registerSW({ immediate: true })
 

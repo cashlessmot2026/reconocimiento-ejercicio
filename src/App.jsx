@@ -59,8 +59,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (boot?.brand?.name) document.title = boot.brand.name
-  }, [boot])
+    document.title = `${site.brand.name} · ${site.brand.tagline}`
+  }, [site])
 
   const refreshClient = useCallback(async (code) => {
     const c = await api.enterClient(code)
@@ -122,8 +122,8 @@ export default function App() {
         <div className="brand" onClick={onBrandTap} onDoubleClick={(e) => e.preventDefault()}>
           <motion.div className="brand-mark" whileTap={{ rotate: 20, scale: 0.92 }}>AR</motion.div>
           <div>
-            <h1>{boot.brand.name}</h1>
-            <small>{boot.brand.tagline}</small>
+            <h1>{site.brand.name}</h1>
+            <small>{site.brand.tagline}</small>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
