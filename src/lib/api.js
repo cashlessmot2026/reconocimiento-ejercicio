@@ -104,6 +104,32 @@ export const api = {
   adminAiCue: (pin, name, category, joint) => aiJob('ej_admin_ai_cue', { p_pin: pin, p_name: name, p_category: category || null, p_joint: joint || null }),
   adminAiMessage: (pin, slot, kind, extra) => aiJob('ej_admin_ai_message', { p_pin: pin, p_slot: slot || null, p_kind: kind, p_extra: extra || null }),
 
+  loadSite: async () => {
+    if (!supabase) return null
+    const { data, error } = await supabase.from('ej_config').select('value').eq('key', 'site').maybeSingle()
+    if (error) throw new Error(error.message)
+    return data?.value || null
+  },
+  media: (id) => rpc('ej_media_get', { p_id: id }),
+  subscribe: (d) =>
+    rpc('ej_public_subscribe', {
+      p_name: d.name, p_email: d.email, p_phone: d.phone || null, p_plan: d.plan, p_proof: d.proof, p_mime: d.mime,
+    }),
+  adminMembers: (pin) => rpc('ej_admin_members', { p_pin: pin }),
+  adminCreateClient: (pin, d) =>
+    rpc('ej_admin_create_client', {
+      p_pin: pin, p_name: d.name, p_email: d.email || null, p_phone: d.phone || null,
+      p_plan: d.plan || null, p_code: d.code || null, p_notify: d.notify !== false,
+    }),
+  adminUpdateMember: (pin, code, data) => rpc('ej_admin_update_member', { p_pin: pin, p_code: code, p_data: data }),
+  adminPayments: (pin) => rpc('ej_admin_payments', { p_pin: pin }),
+  adminPaymentProof: (pin, id) => rpc('ej_admin_payment_proof', { p_pin: pin, p_id: id }),
+  adminReviewPayment: (pin, id, approve, note) =>
+    rpc('ej_admin_review_payment', { p_pin: pin, p_id: id, p_approve: approve, p_note: note || null }),
+  adminSaveSite: (pin, data) => rpc('ej_admin_save_site', { p_pin: pin, p_data: data }),
+  adminUploadMedia: (pin, mime, data) => rpc('ej_admin_upload_media', { p_pin: pin, p_mime: mime, p_data: data }),
+  adminMailTest: (pin, to) => rpc('ej_admin_mail_test', { p_pin: pin, p_to: to }),
+
   classes: (code) => rpc('ej_client_classes', { p_code: code }),
   bookClass: (code, slot) => rpc('ej_client_book', { p_code: code, p_slot: slot }),
   cancelClass: (code, slot) => rpc('ej_client_cancel_booking', { p_code: code, p_slot: slot }),

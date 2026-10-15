@@ -1,4 +1,7 @@
-# KINETIC · Reconocimiento de ejercicio (PWA)
+# AR-COMBAT · Gimnasio de boxeo (PWA)
+
+> Copia orientada a boxeo de KINETIC. Guía de puesta en marcha: [`DEPLOY_AR.md`](DEPLOY_AR.md).
+
 
 PWA en React que usa la cámara y **MediaPipe Pose (33 puntos)** para reconocer el ejercicio,
 medir ángulos articulares, contar **repeticiones y series**, estimar velocidad, fatiga, técnica,

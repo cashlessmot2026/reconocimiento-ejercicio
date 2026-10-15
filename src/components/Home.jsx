@@ -50,9 +50,9 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
         <motion.div className="card hero-copy" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
           <span className="chip" style={{ marginBottom: 16 }}>
             <span className="dot" style={{ background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />
-            Pose 33 puntos · ángulos · mapa muscular
+            Golpes · velocidad · guardia · precisión
           </span>
-          <h2>Cada repetición, <span>medida en tiempo real.</span></h2>
+          <h2>Cada golpe, <span>medido en tiempo real.</span></h2>
           <p className="muted" style={{ maxWidth: 520, fontSize: 16, lineHeight: 1.55 }}>{copy.camera_tip}</p>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
             <BodyMap groups={groups} loads={client ? routineLoads : { espalda: 0.9, biceps: 0.6, cuadriceps: 0.4, pecho: 0.5 }} size={150} />

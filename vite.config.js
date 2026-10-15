@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-const base = process.env.VITE_BASE || '/reconocimiento-ejercicio/'
+const base = process.env.VITE_BASE || '/reconocimiento-ejercicio-v2/'
 
 export default defineConfig({
   base,
@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'KINETIC · Reconocimiento de ejercicio',
-        short_name: 'KINETIC',
-        description: 'Cuenta repeticiones, series y analiza tu técnica con visión artificial.',
+        name: 'AR-COMBAT · Gimnasio de boxeo',
+        short_name: 'AR-COMBAT',
+        description: 'Entrena boxeo con visión artificial: cuenta y clasifica tus golpes, mide tu velocidad y guardia.',
         theme_color: '#070a14',
         background_color: '#070a14',
         display: 'standalone',

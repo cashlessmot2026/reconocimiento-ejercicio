@@ -11,13 +11,15 @@ import ProgressSection, { RangeBar, emptyRange } from './Progress'
 import ExerciseLibrary from './ExerciseLibrary'
 import ClassManager from './ClassManager'
 import { AiTextModal } from './AiParts'
+import MembersPanel from './MembersPanel'
+import SiteEditor from './SiteEditor'
 
 const PUNCH_COLOR = { jab: '#22d3ee', cross: '#a78bfa', lead_hook: '#f59e0b', rear_hook: '#fb7185', lead_upper: '#34d399', rear_upper: '#60a5fa' }
 
 const AX = { stroke: '#8b97b5', fontSize: 11, tickLine: false, axisLine: false }
 const TT = { contentStyle: { background: '#0f1528', border: '1px solid rgba(148,163,184,.2)', borderRadius: 10 }, labelStyle: { color: '#e8eefc' } }
 
-export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
+export default function Admin({ boot, site, onSiteSaved, pin, notify, onLock, onReloadBoot }) {
   const { exercises, groups } = boot
   const exById = useMemo(() => Object.fromEntries(exercises.map((e) => [e.id, e])), [exercises])
   const [overview, setOverview] = useState(null)
@@ -30,6 +32,9 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
   const [loading, setLoading] = useState(false)
   const [libOpen, setLibOpen] = useState(false)
   const [clsOpen, setClsOpen] = useState(false)
+  const [memOpen, setMemOpen] = useState(false)
+  const [siteOpen, setSiteOpen] = useState(false)
+  const [pendingPay, setPendingPay] = useState(0)
 
   const loadAll = useCallback(async () => {
     try {
@@ -51,7 +56,11 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
     } catch (e) { notify(e.message) } finally { setLoading(false) }
   }, [pin, notify, range])
 
-  useEffect(() => { loadAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const loadPending = useCallback(async () => {
+    try { setPendingPay((await api.adminPayments(pin)).filter((p) => p.status === 'pendiente').length) } catch { /* sin pagos aún */ }
+  }, [pin])
+
+  useEffect(() => { loadAll(); loadPending() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadDetail(sel) }, [sel, loadDetail])
 
   const filtered = clients.filter((c) => !q || c.code.includes(q) || (c.name || '').toLowerCase().includes(q.toLowerCase()))
@@ -64,6 +73,10 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
           <span className="muted">Analítica de clientes y progreso semanal</span>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <GlowButton variant="sm solid ok" onClick={() => setMemOpen(true)}>
+            👥 Miembros y pagos{pendingPay > 0 ? ` · ${pendingPay} por validar` : ''}
+          </GlowButton>
+          <GlowButton variant="sm solid" onClick={() => setSiteOpen(true)}>🌐 Sitio web</GlowButton>
           <GlowButton variant="sm solid" onClick={() => setClsOpen(true)}>📅 Clases</GlowButton>
           <GlowButton variant="sm solid" onClick={() => setLibOpen(true)}>🎓 Ejercicios</GlowButton>
           <GlowButton variant="sm ghost" onClick={() => { loadAll(); loadDetail(sel) }}>↻ Actualizar</GlowButton>
@@ -128,6 +141,9 @@ export default function Admin({ boot, pin, notify, onLock, onReloadBoot }) {
           {!detail && <div className="card" style={{ padding: 24 }}><span className="muted">Selecciona un cliente.</span></div>}
         </div>
       </div>
+      <MembersPanel open={memOpen} onClose={() => { setMemOpen(false); loadPending() }} pin={pin} site={site} notify={notify}
+        onChanged={() => { loadAll(); loadPending() }} />
+      <SiteEditor open={siteOpen} onClose={() => setSiteOpen(false)} site={site} pin={pin} notify={notify} onSaved={onSiteSaved} />
       <ClassManager open={clsOpen} onClose={() => setClsOpen(false)} boot={boot} pin={pin} notify={notify} />
       <ExerciseLibrary open={libOpen} onClose={() => setLibOpen(false)} boot={boot} pin={pin} notify={notify} onChanged={() => onReloadBoot?.()} />
     </>

@@ -5,6 +5,8 @@ import { loadPoseLandmarker } from './lib/pose'
 import { GlowButton, Toast } from './components/ui'
 import Home from './components/Home'
 import PinModal from './components/PinModal'
+import Landing from './components/Landing'
+import { useSite } from './lib/site'
 import { TopbarDisplay } from './components/DisplayControls'
 
 const Session = lazy(() => import('./components/Session'))
@@ -15,7 +17,8 @@ export default function App() {
   const [bootErr, setBootErr] = useState(null)
   const [client, setClient] = useState(null)
   const [plan, setPlan] = useState(null)
-  const [view, setView] = useState('home')
+  const [view, setView] = useState(() => (location.hash === '#ingresar' ? 'home' : 'landing'))
+  const [site, refreshSite] = useSite()
   const [pinOpen, setPinOpen] = useState(false)
   const [adminPin, setAdminPin] = useState(null)
   const [toast, setToast] = useState(null)
@@ -33,13 +36,27 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    doBoot()
-    // Precarga el modelo de pose en segundo plano
+    if (location.hash === '#admin') setPinOpen(true)
+  }, [])
+
+  // El catálogo y el modelo de pose solo se cargan al salir de la página principal
+  useEffect(() => {
+    if (view === 'landing') return undefined
+    if (!boot && !bootErr) doBoot()
     // Con un pequeño retraso para no competir con la carga inicial de la pantalla
     const pre = setTimeout(() => loadPoseLandmarker().catch(() => {}), 2500)
-    if (location.hash === '#admin') setPinOpen(true)
     return () => clearTimeout(pre)
-  }, [doBoot])
+  }, [view]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const goClient = useCallback(() => {
+    setView('home')
+    history.replaceState(null, '', `${location.pathname}#ingresar`)
+    window.scrollTo(0, 0)
+  }, [])
+  const goLanding = useCallback(() => {
+    setView('landing')
+    history.replaceState(null, '', location.pathname)
+  }, [])
 
   useEffect(() => {
     if (boot?.brand?.name) document.title = boot.brand.name
@@ -61,6 +78,21 @@ export default function App() {
     }
   }
 
+  const onPinSuccess = (pin) => {
+    setAdminPin(pin); setPinOpen(false); setView('admin'); history.replaceState(null, '', location.pathname)
+  }
+
+  if (view === 'landing') {
+    return (
+      <div className="shell">
+        <div className="aurora" /><div className="grid-bg" />
+        <Landing site={site} onEnter={goClient} onBrandTap={onBrandTap} notify={notify} />
+        <PinModal open={pinOpen} title="Panel del administrador" onClose={() => setPinOpen(false)} onSuccess={onPinSuccess} />
+        <Toast msg={toast} />
+      </div>
+    )
+  }
+
   if (!boot) {
     return (
       <div className="shell">
@@ -70,7 +102,10 @@ export default function App() {
             <div className="card" style={{ padding: 24, maxWidth: 420 }}>
               <h3 style={{ marginTop: 0 }}>No se pudo conectar con la base de datos</h3>
               <p className="muted">{bootErr}</p>
-              <GlowButton variant="solid" onClick={doBoot}>Reintentar</GlowButton>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <GlowButton variant="solid" onClick={doBoot}>Reintentar</GlowButton>
+                <GlowButton variant="ghost" onClick={goLanding}>← Volver al inicio</GlowButton>
+              </div>
             </div>
           ) : (
             <div><div className="loader" /><span className="muted">Conectando…</span></div>
@@ -85,7 +120,7 @@ export default function App() {
       <div className="aurora" /><div className="grid-bg" />
       <header className="topbar">
         <div className="brand" onClick={onBrandTap} onDoubleClick={(e) => e.preventDefault()}>
-          <motion.div className="brand-mark" whileTap={{ rotate: 20, scale: 0.92 }}>K</motion.div>
+          <motion.div className="brand-mark" whileTap={{ rotate: 20, scale: 0.92 }}>AR</motion.div>
           <div>
             <h1>{boot.brand.name}</h1>
             <small>{boot.brand.tagline}</small>
@@ -95,6 +130,9 @@ export default function App() {
           <TopbarDisplay notify={notify} />
           {view === 'admin' && (
             <GlowButton variant="sm ghost" onClick={() => setView('home')}>← Salir del panel</GlowButton>
+          )}
+          {view !== 'workout' && (
+            <GlowButton variant="sm ghost" onClick={goLanding}>🏠 Inicio</GlowButton>
           )}
           {client && view === 'home' && (
             <motion.span className="chip" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}>
@@ -121,7 +159,7 @@ export default function App() {
         )}
         {view === 'admin' && adminPin && (
           <motion.main key="admin" className="container" style={{ maxWidth: 1500 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0 } }}>
-            <Admin boot={boot} pin={adminPin} notify={notify} onReloadBoot={() => loadBootstrap().then(setBoot).catch(() => {})} onLock={() => { setAdminPin(null); setView('home') }} />
+            <Admin boot={boot} site={site} onSiteSaved={refreshSite} pin={adminPin} notify={notify} onReloadBoot={() => loadBootstrap().then(setBoot).catch(() => {})} onLock={() => { setAdminPin(null); setView('home') }} />
           </motion.main>
         )}
       </AnimatePresence>
@@ -144,7 +182,7 @@ export default function App() {
         open={pinOpen}
         title={boot.copy.admin_title}
         onClose={() => setPinOpen(false)}
-        onSuccess={(pin) => { setAdminPin(pin); setPinOpen(false); setView('admin'); history.replaceState(null, '', location.pathname) }}
+        onSuccess={onPinSuccess}
       />
       <Toast msg={toast} />
     </div>

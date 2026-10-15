@@ -1,7 +1,7 @@
 name: Compilar APK de Android
 
 # Se ejecuta a mano: Actions → "Compilar APK de Android" → Run workflow.
-# Envuelve la PWA con Capacitor y publica KINETIC.apk en la release "apk-latest".
+# Envuelve la PWA con Capacitor y publica AR-COMBAT.apk en la release "apk-latest".
 on:
   workflow_dispatch:
 
@@ -37,8 +37,8 @@ jobs:
           npm install --no-save --no-audit --no-fund @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
           cat > capacitor.config.json <<'JSON'
           {
-            "appId": "com.kinetic.ejercicio",
-            "appName": "KINETIC",
+            "appId": "com.arcombat.app",
+            "appName": "AR-COMBAT",
             "webDir": "dist",
             "server": { "androidScheme": "https" },
             "backgroundColor": "#070a14"
@@ -67,12 +67,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk KINETIC.apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk AR-COMBAT.apk
           gh release delete apk-latest --yes --cleanup-tag || true
-          gh release create apk-latest KINETIC.apk --title "KINETIC · APK Android" \
+          gh release create apk-latest AR-COMBAT.apk --title "AR-COMBAT · APK Android" \
             --notes "APK de la app compilado desde la rama main ($GITHUB_SHA). Instalable en Android (permite instalar apps de origen desconocido)."
 
       - uses: actions/upload-artifact@v4
         with:
-          name: KINETIC-apk
-          path: KINETIC.apk
+          name: AR-COMBAT-apk
+          path: AR-COMBAT.apk
