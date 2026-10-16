@@ -8,9 +8,10 @@ import { useWakeLock } from '../lib/display'
 import GhostFigure from './GhostFigure'
 import { GlowButton } from './ui'
 
-const ICONS = ['💪', '🏋️', '🦵', '🙆', '🤸', '🧗', '🏃', '🧘', '⚡', '🔥', '🥋', '🚴']
+const ICONS = ['🥊', '🥋', '🦶', '💥', '⚡', '🔥', '🏃', '🤸', '🛡️', '🎯', '💪', '🦵']
 const EFFORT = [['Suave', 0.2], ['Moderado', 0.4], ['Intenso', 0.7]]
-const MIN_SECS = 4, MAX_SECS = 90
+const MIN_SECS = 3, MAX_SECS = 10 // la demostración dura como máximo 10 s
+const AUTO_QUALITY = 70 // calidad mínima para guardar sin confirmar
 const AX = { stroke: '#8b97b5', fontSize: 11, tickLine: false, axisLine: false }
 const TT = { contentStyle: { background: '#0f1528', border: '1px solid rgba(148,163,184,.2)', borderRadius: 10 }, labelStyle: { color: '#e8eefc' } }
 
@@ -23,8 +24,8 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
   const { groups, exercises } = boot
   const [step, setStep] = useState(existing ? 'record' : 'info')
   const [info, setInfo] = useState({
-    name: '', icon: '💪', category: 'Personalizado', primary_group: '', secondary: [], effort: 0.4,
-    supports_load: false, bw_factor: 0, cue: '', camera_hint: '', default_sets: 3, default_reps: 10,
+    name: '', icon: '🥊', category: 'Boxeo', primary_group: '', secondary: [], effort: 0.4,
+    supports_load: false, bw_factor: 0, cue: '', camera_hint: 'Cámara frontal o lateral, cuerpo completo visible', default_sets: 3, default_reps: 60,
   })
   const [rec, setRec] = useState(null) // { frames, aspect, mirrored }
   const [opts, setOpts] = useState({ invert: false, joint: null, adjust: false })
@@ -32,7 +33,7 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
   const [aiBusy, setAiBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  const categories = useMemo(() => [...new Set(['Personalizado', ...exercises.map((e) => e.category)])], [exercises])
+  const categories = useMemo(() => [...new Set(['Boxeo', 'Defensa', 'Footwork', 'Combinaciones', 'Acondicionamiento', ...exercises.map((e) => e.category)])], [exercises])
   const setI = (k, v) => setInfo((s) => ({ ...s, [k]: v }))
 
   // Ejercicio existente: la articulación y los ángulos ya están definidos
@@ -49,6 +50,8 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
   }, [rec, opts, existing, existingJoint])
 
   const infoOk = info.name.trim().length >= 2 && info.primary_group
+  const autoRef = useRef(null)
+  const [auto, setAuto] = useState('') // '' | 'saving' | 'low'
 
   const save = async () => {
     if (!analysis || analysis.error) return
@@ -85,6 +88,17 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
+  // Guarda solo, sin pedir confirmación, cuando el movimiento quedó bien registrado
+  useEffect(() => {
+    if (step !== 'review' || !analysis || analysis.error) { setAuto(''); return }
+    const good = analysis.quality >= AUTO_QUALITY && analysis.reps >= 3
+    if (!good) { setAuto('low'); return }
+    if (autoRef.current === rec) return
+    autoRef.current = rec
+    setAuto('saving')
+    save()
+  }, [step, analysis]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="trainer">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
@@ -104,7 +118,7 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
           <div className="form-grid">
             <label className="fld" style={{ gridColumn: '1 / -1' }}>
               <span>Nombre del ejercicio <b className="req">*</b></span>
-              <input className="text-input" maxLength={40} value={info.name} onChange={(e) => setI('name', e.target.value)} placeholder="Ej.: Remo con mancuerna" />
+              <input className="text-input" maxLength={40} value={info.name} onChange={(e) => setI('name', e.target.value)} placeholder="Ej.: Jab-cross con pivote" />
             </label>
             <div className="fld">
               <span>Icono</span>
@@ -180,7 +194,7 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
             </div>
             <label className="fld" style={{ gridColumn: '1 / -1' }}>
               <span>Indicación técnica para el cliente</span>
-              <input className="text-input" maxLength={120} value={info.cue} onChange={(e) => setI('cue', e.target.value)} placeholder="Ej.: Espalda recta, sube el codo hasta la cadera" />
+              <input className="text-input" maxLength={120} value={info.cue} onChange={(e) => setI('cue', e.target.value)} placeholder="Ej.: Guardia arriba, gira la cadera al lanzar el golpe" />
             </label>
             <label className="fld" style={{ gridColumn: '1 / -1' }}>
               <span>Cómo colocar la cámara</span>
@@ -218,7 +232,7 @@ export default function ExerciseTrainer({ boot, pin, existing, onClose, onSaved,
             </>
           ) : (
             <Review A={analysis} existing={existing} opts={opts} setOpts={setOpts}
-              onAgain={() => { setRec(null); setStep('record') }} onSave={save} busy={busy} err={err} />
+              onAgain={() => { setRec(null); autoRef.current = null; setAuto(''); setStep('record') }} onSave={save} busy={busy} err={err} auto={auto} />
           )}
         </div>
       )}
@@ -300,28 +314,28 @@ function RecorderStage({ onDone, onCancel }) {
         <div className="rec-top">
           <span className={`chip ${seen ? 'ok' : ''}`}>{seen ? '✓ Cuerpo visible' : '⚠ Colócate de cuerpo completo'}</span>
           {note && phase !== 'rec' && <span className="chip">{note}</span>}
-          {phase === 'rec' && <span className="chip rec"><i className="rec-dot" /> {secs.toFixed(0)} s</span>}
+          {phase === 'rec' && <span className="chip rec"><i className="rec-dot" /> {secs.toFixed(0)} / {MAX_SECS} s</span>}
         </div>
         {phase === 'count' && <div className="rec-count mono">{count}</div>}
         {cam.status === 'loading' && <div className="center-msg"><div><div className="loader" /><span className="muted">Cargando cámara…</span></div></div>}
         {cam.status === 'error' && <div className="center-msg"><div className="form-err">{cam.error}</div></div>}
       </div>
       <p className="muted" style={{ fontSize: 13, margin: '10px 0' }}>
-        Colócate en la <b>posición inicial</b>, pulsa Grabar y haz de <b>3 a 8 repeticiones</b> completas, a ritmo constante y con la técnica ideal. Después pulsa Detener.
+        Colócate en la <b>posición inicial</b>, pulsa Grabar y haz <b>3 o más repeticiones</b> del movimiento de boxeo con la técnica ideal. La grabación dura <b>10 segundos</b> y se detiene sola; si queda bien registrada se guarda automáticamente.
         {' '}<span className="mono">{cam.fps} fps</span>
       </p>
       <div className="rec-actions">
         <GlowButton variant="ghost" onClick={onCancel} disabled={phase !== 'idle'}>← Atrás</GlowButton>
         <GlowButton variant="icon ghost" onClick={async () => { const r = await cam.flip(); setNote(r?.message || '') }} disabled={phase !== 'idle'} title="Cambiar cámara">{cam.facing === 'environment' ? '📷' : '🤳'}</GlowButton>
-        {phase === 'idle' && <GlowButton variant="solid hot" disabled={cam.status !== 'ready' || !seen} onClick={() => { setCount(5); setPhase('count') }}>● Grabar (5 s de preparación)</GlowButton>}
+        {phase === 'idle' && <GlowButton variant="solid hot" disabled={cam.status !== 'ready' || !seen} onClick={() => { setCount(5); setPhase('count') }}>● Grabar 10 s (5 s de preparación)</GlowButton>}
         {phase === 'count' && <GlowButton variant="ghost" onClick={() => setPhase('idle')}>Cancelar</GlowButton>}
-        {phase === 'rec' && <GlowButton variant="solid" disabled={secs < MIN_SECS} onClick={stop}>■ Detener y analizar</GlowButton>}
+        {phase === 'rec' && <GlowButton variant="solid" disabled={secs < MIN_SECS} onClick={stop}>■ Detener ya</GlowButton>}
       </div>
     </div>
   )
 }
 
-function Review({ A, existing, opts, setOpts, onAgain, onSave, busy, err }) {
+function Review({ A, existing, opts, setOpts, onAgain, onSave, busy, err, auto }) {
   const q = A.quality
   const qColor = q >= 80 ? 'var(--ok)' : q >= 55 ? 'var(--warn)' : 'var(--hot)'
   const tpl = A.template.map((p, i) => ({ i, p, pct: Math.round((i / (A.template.length - 1)) * 100) }))
@@ -397,6 +411,8 @@ function Review({ A, existing, opts, setOpts, onAgain, onSave, busy, err }) {
         )}
       </div>
 
+      {auto === 'saving' && !err && <div className="chip ok" style={{ marginTop: 12 }}>✓ Movimiento bien registrado · guardando automáticamente…</div>}
+      {auto === 'low' && <div className="form-err">Calidad {q}% (mínimo {AUTO_QUALITY}% con 3 repeticiones): no se guardó solo. Graba de nuevo o guárdalo manualmente.</div>}
       {err && <div className="form-err">{err}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 14 }}>
         <GlowButton variant="ghost" onClick={onAgain}>🔁 Grabar de nuevo</GlowButton>

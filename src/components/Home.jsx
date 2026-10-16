@@ -178,7 +178,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
         </AnimatePresence>
       </motion.div>
 
-      <ExerciseConfig
+      {config && <ExerciseConfig
         exercise={config}
         groups={groups}
         bodyKg={client?.body_weight_kg}
@@ -192,7 +192,7 @@ export default function Home({ boot, client, onEnter, onLogout, onStart, notify 
             notify(`${p.exercise.name} añadido a tu rutina`)
           } catch (e) { notify(e.message) }
         }}
-      />
+      />}
     </>
   )
 }

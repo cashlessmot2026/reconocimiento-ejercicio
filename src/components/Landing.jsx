@@ -7,7 +7,7 @@ import { GlowButton, Modal } from './ui'
 import { Img } from './Media'
 
 const NAV = [
-  ['inicio', 'Inicio'], ['cursos', 'Cursos'], ['online', 'Online'], ['planes', 'Planes'], ['contacto', 'Contacto'],
+  ['inicio', 'Inicio'], ['cursos', 'Cursos'], ['online', 'Online'], ['eventos', 'Eventos'], ['sede', 'Sede'], ['planes', 'Planes'], ['contacto', 'Contacto'],
 ]
 
 const goTo = (id) => {
@@ -105,6 +105,9 @@ export default function Landing({ site, onEnter, onBrandTap, notify }) {
           <GlowButton variant="solid" onClick={() => goTo('planes')}>{site.online.cta_label || 'Ver planes'}</GlowButton>
         </div>
       </section>
+
+      <EventsBanner data={site.events} />
+      <VenueGallery data={site.venue} />
 
       <section id="planes" className="l-sec">
         <motion.h2 className="l-h2" {...reveal}>{site.plans_section.title}</motion.h2>
@@ -209,6 +212,71 @@ function Hero({ slides, onPlans }) {
           </div>
         </>
       )}
+    </section>
+  )
+}
+
+/** Banner «Eventos»: carrusel automático de fotos con pausa al pasar el mouse. */
+function EventsBanner({ data }) {
+  const imgs = (data?.images || []).filter((x) => x?.src)
+  const n = imgs.length
+  const [i, setI] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const go = useCallback((d) => setI((x) => (x + d + n) % n), [n])
+  useEffect(() => {
+    if (paused || n < 2) return undefined
+    const t = setInterval(() => go(1), 3800)
+    return () => clearInterval(t)
+  }, [paused, n, go])
+  if (!n) return null
+  return (
+    <section id="eventos" className="l-sec ev-sec">
+      <motion.div className="ev-head" {...reveal}>
+        <span className="chip"><span className="dot" style={{ background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)' }} />EN VIVO DESDE EL RING</span>
+        <h2 className="l-h2">{data.title || 'Eventos'}</h2>
+        {data.intro && <p className="l-intro muted">{data.intro}</p>}
+      </motion.div>
+      <div className="ev-slider glow-frame" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+        <div className="ev-track" style={{ transform: `translateX(-${i * 100}%)` }}>
+          {imgs.map((m, k) => (
+            <figure key={k} className="ev-slide" aria-hidden={k !== i}>
+              <img src={m.src} alt={m.caption || 'Evento'} loading={k < 2 ? 'eager' : 'lazy'} />
+              {m.caption && <figcaption>{m.caption}</figcaption>}
+            </figure>
+          ))}
+        </div>
+        {n > 1 && (
+          <>
+            <button type="button" className="hs-arrow left" aria-label="Anterior" onClick={() => go(-1)}>‹</button>
+            <button type="button" className="hs-arrow right" aria-label="Siguiente" onClick={() => go(1)}>›</button>
+            <div className="hs-dots">
+              {imgs.map((_, k) => <button key={k} type="button" aria-label={`Foto ${k + 1}`} className={k === i ? 'on' : ''} onClick={() => setI(k)} />)}
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+/** Galería de la sede: fotos y videos cortos (silenciados, en bucle). */
+function VenueGallery({ data }) {
+  const items = (data?.items || []).filter((x) => x?.src)
+  if (!items.length) return null
+  return (
+    <section id="sede" className="l-sec">
+      <motion.h2 className="l-h2" {...reveal}>{data.title || 'Nuestra sede'}</motion.h2>
+      {data.intro && <motion.p className="l-intro muted" {...reveal}>{data.intro}</motion.p>}
+      <div className="venue-grid">
+        {items.map((m, k) => (
+          <motion.figure key={k} className="card venue-item" {...reveal} transition={{ duration: 0.5, delay: k * 0.08 }}>
+            {m.type === 'video'
+              ? <video src={m.src} poster={m.poster} autoPlay muted loop playsInline preload="metadata" />
+              : <img src={m.src} alt={m.caption || 'Sede'} loading="lazy" />}
+            {m.caption && <figcaption>{m.caption}</figcaption>}
+          </motion.figure>
+        ))}
+      </div>
     </section>
   )
 }
